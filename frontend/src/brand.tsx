@@ -1,0 +1,1 @@
+export default function Brand(){return <a className="brand" href="/" aria-label="Die ABLAGE – ein Projekt von Die PARTEI"><img className="partei-logo" src="/partei-logo.png" alt="Die PARTEI" width="477" height="100"/><span className="brand-title"><span className="brand-article">Die</span> ABLAGE</span><span className="brand-caption">Gemeinsame Recherche</span></a>;}

@@ -1,0 +1,17 @@
+node_modules/
+private/config.php
+private/installed.lock
+private/archives/
+private/sessions/
+private/limits/
+
+.env*
+*.pem
+*.key
+*password*.txt
+*installation-key*.txt
+*deploy_key*
+*.sqlite*
+*.sql.gz
+die-ablage-bibliothek.json
+.DS_Store
