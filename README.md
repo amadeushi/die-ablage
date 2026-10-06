@@ -45,4 +45,10 @@ Lokaler PHP-Server: `php -S 127.0.0.1:5180 -t public router.php`. Nur für die E
 
 Geprüft mit PHP 8.5 und MariaDB 12.3: Installation, Anmeldung, CSRF- und Herkunftsprüfung, Einladung und Wiederverwendungsschutz, Rollen, Zehn-Personen-Limit, Sperrung alter Sitzungen nach Entfernung und erneuter Einladung, private Seitenkopien, öffentliche Clip-/Sammlungslinks und Widerruf. PHP-Syntax und Produktionsbuild geprüft. Der lokale Test nutzt eine getrennte Testdatenbank, keine echten Nutzerdaten.
 
-Noch ausstehend: Prüfung auf dem konkreten ALL-INKL-Account (PHP-/Apache-Konfiguration und Rechte) sowie vollständiger Chrome-/Edge-Test mit installierter Erweiterung. `tests/integration.py` ist ausschließlich für eine frische lokale Testdatenbank bestimmt; nicht gegen eine produktive Bibliothek ausführen.
+Auf ALL-INKL mit PHP 8.3 zusätzlich geprüft: Datenbankverbindung, Installation des Inhaberkontos, HTTPS, API-Routing, privater Zugriff ohne Anmeldung (401), ungültige Leselinks (404) und Erweiterungsdownload. Ein vollständiger Chrome-/Edge-Test der Erfassung bleibt ausstehend. `tests/integration.py` ist ausschließlich für eine frische lokale Testdatenbank bestimmt; nicht gegen eine produktive Bibliothek ausführen.
+
+## Bestehende Installation
+
+Die laufende Installation unter `https://ablage.partei-hildesheim.de` verwendet das vorhandene Domainziel. Dort liegen die Dateien aus `public/` direkt im Domainverzeichnis; der private Ordner liegt als `.die-ablage-private/` daneben außerhalb des Webverzeichnisses. In den hochgeladenen PHP-Dateien wurden die Verweise `dirname(__DIR__).'/private/…'` entsprechend angepasst. Das Repository enthält die portable Vorlage mit `public/` und `private/`.
+
+Bei Updates der bestehenden Installation diese Pfadanpassung erhalten. Konfiguration, `installed.lock`, Archive und Sitzungen nicht überschreiben. Der Installer wurde auf dem laufenden Webspace bereits entfernt und wird dort nicht erneut benötigt.
