@@ -35,7 +35,7 @@ try{
   if(!isset($_GET['archive']))respond(public_clip($clip));
   if(!$clip['archive_key']||!is_file(archive_path($clip['archive_key'])))problem('Die Seitenkopie ist nicht verfügbar.',404);
   header("Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");header('Content-Type: text/html; charset=utf-8');
-  echo '<!doctype html><html><head><meta charset="utf-8"><style>body{font:17px/1.7 Georgia,serif;color:#202022;padding:20px;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>';
+  echo '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow, noarchive"><title>'.htmlspecialchars($clip['title'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').' · Gespeicherte Seitenkopie</title><style>body{font:17px/1.8 Georgia,serif;color:#202022;max-width:72ch;margin:0 auto;padding:24px 20px;overflow-wrap:anywhere}h1{font-size:clamp(26px,5vw,36px);line-height:1.2}img{max-width:100%;height:auto}table{display:block;max-width:100%;overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}*{box-sizing:border-box}</style></head><body>';
   readfile(archive_path($clip['archive_key']));echo '</body></html>';exit;
  }
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);

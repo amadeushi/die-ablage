@@ -52,3 +52,12 @@ Auf ALL-INKL mit PHP 8.3 zusätzlich geprüft: Datenbankverbindung, Installation
 Die laufende Installation unter `https://ablage.partei-hildesheim.de` verwendet das vorhandene Domainziel. Dort liegen die Dateien aus `public/` direkt im Domainverzeichnis; der private Ordner liegt als `.die-ablage-private/` daneben außerhalb des Webverzeichnisses. In den hochgeladenen PHP-Dateien wurden die Verweise `dirname(__DIR__).'/private/…'` entsprechend angepasst. Das Repository enthält die portable Vorlage mit `public/` und `private/`.
 
 Bei Updates der bestehenden Installation diese Pfadanpassung erhalten. Konfiguration, `installed.lock`, Archive und Sitzungen nicht überschreiben. Der Installer wurde auf dem laufenden Webspace bereits entfernt und wird dort nicht erneut benötigt.
+
+
+## Geteilte Leseansicht und Messenger-Vorschauen
+
+Einzelclips zeigen eine Überschrift und kontinuierlichen Lesetext. Bei Seitenkopien bleibt die gespeicherte HTML-Kopie über einen separaten Link erreichbar und sandboxed; der Leselink selbst hat keinen eingebetteten Scrollrahmen. Sammlungen bieten auf Smartphones eine kompakte Auswahl mit Vor-/Zurück-Navigation und Fokusführung.
+
+`public/share.php` erzeugt für gültige `/s/<token>`-Links bereits in der ersten HTML-Antwort Titel, einen kurzen Textauszug sowie Open-Graph-/Twitter-Metadaten mit dem ABLAGE-Vorschaubild. `private/share-preview.php` gehört bei Updates ebenfalls in den privaten App-Ordner. Ungültige oder widerrufene Links liefern HTTP 404 ohne Artikelmetadaten; Antworten sind no-store und noindex. Messenger können Vorschauen zwischenspeichern oder deaktivieren.
+
+Prüfung: `python3 tests/share-preview.py` nutzt eine temporäre, isolierte SQLite-Datenbank und prüft HTML-Escaping, Unicode-Auszüge, Sammlungen, Freigabegrenzen, Widerruf, Cache-Header und Archiv-Sandbox. Layout und Clipwechsel wurden in Chromium bei 320/390px und Desktop geprüft; physische Smartphones und echte Messenger bleiben separat zu prüfen.

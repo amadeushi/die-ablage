@@ -120,3 +120,9 @@ Reader content separates source, saved article and notes. Capture and sharing co
 - Don't replace ruled clip rows with decorative metric cards.
 - Don't use shadows to decorate ordinary navigation or clip rows.
 - Don't introduce another accent family into interaction states.
+
+## Public shared reader
+
+Shared single clips use one primary headline, source/access metadata and continuous serif text. Exact standalone title repetitions at the start of saved text are omitted from display; stored content remains intact. Archived HTML is available in a separate sandboxed saved-copy view rather than an embedded scrolling frame. On phones, article surfaces merge into the paper background with one 20px gutter; article titles use 30px Barlow Condensed. Collections keep a desktop side list and use a native compact clip selector on phones. Explicit clip changes move focus and scroll to the article heading; previous/next and return-to-selection actions follow the notes. Source links and reading controls have at least 44px hit height.
+
+Messenger previews use server-generated title and short plain-text excerpt for valid secret links, plus a static 1200×630 PARTEI/ABLAGE PNG using the existing fonts, colors and retained slogan. Invalid or revoked links return neutral HTML with 404 and no content-specific metadata. Public reader responses are no-store and noindex; external preview caches remain outside the app's control.
