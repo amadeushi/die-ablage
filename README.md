@@ -33,7 +33,7 @@ Seitenkopien speichern Text und Struktur; geschützte Bilder, Medien und dynamis
 - „Bibliothek vorübergehend nicht erreichbar“: PHP-Fehlerlog, Datenbankname/Benutzer, `pdo_mysql`, Ordnerrechte und `origin` prüfen. Keine Datenbankpasswörter im Browser veröffentlichen.
 - Bei Updates `public/` sowie den Backend-Quellcode aktualisieren; **`private/config.php`, `installed.lock`, archives/, sessions/ und limits/** erhalten. Installation nicht erneut ausführen. Vorher sichern.
 
-Die ursprüngliche lokale Bibliothek bleibt bestehen. Ein lokaler Export der bisherigen Ausgabe kann bei Bedarf separat erstellt werden. Private Bibliotheksdaten gehören nicht in dieses Repository.
+Die ursprüngliche lokale Bibliothek bleibt bestehen. Ein separater Export `die-ablage-bibliothek.json` enthält die bisherigen 3 Clips und 2 Sammlungen samt Seitenkopien und vorhandenen Freigaben. Er ist bewusst nicht im allgemeinen Upload-Paket enthalten.
 
 Optional direkt nach Installation und vor dem ersten neuen Clip: Export per SFTP nach `private/` hochladen, per SSH `php private/import-library.php private/die-ablage-bibliothek.json` ausführen und die Exportdatei anschließend vom Webspace entfernen. Der Import funktioniert nur in eine leere Bibliothek und übernimmt keine Konten oder Anmeldesitzungen. Teammitglieder separat einladen. Vorhandene Lesetokens bleiben gültig; Links müssen auf die neue Domain zeigen. Wenn alte Freigaben nicht übernommen werden sollen, diese nach Import unter „Teilen“ deaktivieren. Den Export privat aufbewahren und niemals in `public/` ablegen.
 
@@ -41,32 +41,18 @@ Optional direkt nach Installation und vor dem ersten neuen Clip: Export per SFTP
 
 Frontend lokal bauen: im entpackten Projektordner `npm install` und `npm run build` (Node.js ab 22.13). Alternativ im ursprünglichen Projekt mit installierten npm-Abhängigkeiten `node node_modules/vite/bin/vite.js build --config all-inkl/vite.config.ts`. Das Paket enthält bereits die gebauten Dateien. Node.js wird ausschließlich für spätere Frontend-Änderungen auf dem Entwicklungsrechner benötigt.
 
-Lokaler PHP-Server: `php -S 127.0.0.1:5180 -t public router.php`. Nur für die Entwicklung; auf ALL-INKL übernimmt Apache mit `.htaccess` die Routen.
+Lokaler PHP-Server: `php -S 127.0.0.1:5180 -t all-inkl/public all-inkl/router.php`. Nur für die Entwicklung; auf ALL-INKL übernimmt Apache mit `.htaccess` die Routen.
 
 Geprüft mit PHP 8.5 und MariaDB 12.3: Installation, Anmeldung, CSRF- und Herkunftsprüfung, Einladung und Wiederverwendungsschutz, Rollen, Zehn-Personen-Limit, Sperrung alter Sitzungen nach Entfernung und erneuter Einladung, private Seitenkopien, öffentliche Clip-/Sammlungslinks und Widerruf. PHP-Syntax und Produktionsbuild geprüft. Der lokale Test nutzt eine getrennte Testdatenbank, keine echten Nutzerdaten.
 
-Auf ALL-INKL mit PHP 8.3 zusätzlich geprüft: Datenbankverbindung, Installation des Inhaberkontos, HTTPS, API-Routing, privater Zugriff ohne Anmeldung (401), ungültige Leselinks (404) und Erweiterungsdownload. Ein vollständiger Chrome-/Edge-Test der Erfassung bleibt ausstehend. `tests/integration.py` ist ausschließlich für eine frische lokale Testdatenbank bestimmt; nicht gegen eine produktive Bibliothek ausführen.
+Noch ausstehend: Prüfung auf dem konkreten ALL-INKL-Account (PHP-/Apache-Konfiguration und Rechte) sowie vollständiger Chrome-/Edge-Test mit installierter Erweiterung. `tests/integration.py` ist ausschließlich für eine frische lokale Testdatenbank bestimmt; nicht gegen eine produktive Bibliothek ausführen.
 
-## Bestehende Installation
+## Bereichsauswahl in Chrome (Version 1.2.0)
 
-Die laufende Installation unter `https://ablage.partei-hildesheim.de` verwendet das vorhandene Domainziel. Dort liegen die Dateien aus `public/` direkt im Domainverzeichnis; der private Ordner liegt als `.die-ablage-private/` daneben außerhalb des Webverzeichnisses. In den hochgeladenen PHP-Dateien wurden die Verweise `dirname(__DIR__).'/private/…'` entsprechend angepasst. Das Repository enthält die portable Vorlage mit `public/` und `private/`.
+Quelle öffnen und bei Bedarf anmelden. Erweiterung öffnen, „Bereiche auf der Seite auswählen“ wählen, sichtbaren Inhalt bestätigen und „Bereiche auswählen“ anklicken. Absätze, Bilder und Tabellen auf der Seite anklicken; erneuter Klick entfernt einen Bereich. Die Auswahl bleibt beim Scrollen sichtbar. „Vorheriger Bereich“, „Nächster Bereich“ und „Bereich übernehmen“ erlauben Tastaturbedienung. „Auswahl prüfen“ zeigt die erfassten Bereiche; „In Die ABLAGE prüfen“ öffnet die bestehende Bibliotheksvorschau. Erst „Clip speichern“ speichert den Clip. Escape oder „Abbrechen“ beendet die Auswahl.
 
-Bei Updates der bestehenden Installation diese Pfadanpassung erhalten. Konfiguration, `installed.lock`, Archive und Sitzungen nicht überschreiben. Der Installer wurde auf dem laufenden Webspace bereits entfernt und wird dort nicht erneut benötigt.
+Mehrere Bereiche werden in Seitenreihenfolge gespeichert, überlappende Bereiche nicht doppelt. Eingabefelder, Skripte und versteckte Inhalte werden ausgelassen. Bilder werden nach Möglichkeit lokal eingebettet; technisch nicht kopierbare Bilder erscheinen als Hinweis. Eingebettete Frames, Shadow-DOM-Inhalte, Videos und pixelgenaue Bildschirm-Ausschnitte sind nicht Teil dieser ersten Version. Maximale Auswahl: 50 Bereiche, 1 MB Text und 5 MB Seitenkopie.
 
+Update: ZIP neu herunterladen und in den bisherigen Erweiterungsordner entpacken. In Chrome unter chrome://extensions bei Die ABLAGE auf „Neu laden“ klicken; die Quellseite ebenfalls neu laden. Alternativ einen neuen Ordner entpacken und die bisherige Erweiterung ersetzen.
 
-## Geteilte Leseansicht und Messenger-Vorschauen
-
-Einzelclips zeigen eine Überschrift und kontinuierlichen Lesetext. Bei Seitenkopien bleibt die gespeicherte HTML-Kopie über einen separaten Link erreichbar und sandboxed; der Leselink selbst hat keinen eingebetteten Scrollrahmen. Sammlungen bieten auf Smartphones eine kompakte Auswahl mit Vor-/Zurück-Navigation und Fokusführung.
-
-`public/share.php` erzeugt für gültige `/s/<token>`-Links bereits in der ersten HTML-Antwort Titel, einen kurzen Textauszug sowie Open-Graph-/Twitter-Metadaten mit dem ABLAGE-Vorschaubild. `private/share-preview.php` gehört bei Updates ebenfalls in den privaten App-Ordner. Ungültige oder widerrufene Links liefern HTTP 404 ohne Artikelmetadaten; Antworten sind no-store und noindex. Messenger können Vorschauen zwischenspeichern oder deaktivieren.
-
-Prüfung: `python3 tests/share-preview.py` nutzt eine temporäre, isolierte SQLite-Datenbank und prüft HTML-Escaping, Unicode-Auszüge, Sammlungen, Freigabegrenzen, Widerruf, Cache-Header und Archiv-Sandbox. Layout und Clipwechsel wurden in Chromium bei 320/390px und Desktop geprüft; physische Smartphones und echte Messenger bleiben separat zu prüfen.
-
-
-## Audit-Verbesserungen vom 8. Oktober 2026
-
-Private Reader und Dialoge führen den Fokus, begrenzen Tab, unterstützen Escape und stellen die ursprünglichen Auslöser wieder her. Mobile Bedienelemente haben mindestens 44px Zielgröße; Eingabeschrift ist mindestens 16px. Private Seitenkopien sind separat erreichbar, während der Lesetext kontinuierlich scrollt.
-
-Die Bibliothek verwendet `/api/library?list=1` für serverseitige Suche und Filter sowie Seiten mit 40 Kurzfassungen. Volltext und Notizen werden erst beim Öffnen eines Clips über die authentifizierte Detailroute geladen. Der bisherige unpaginierte API-Abruf bleibt für ältere Clients kompatibel. Bei Updates `private/library-list.php`, sämtliche referenzierten JS-Chunks einschließlich `workspace-*.js` und die WOFF2-Schriften mit hochladen; private Konfiguration und Nutzerdaten bleiben bestehen.
-
-Prüfung: `php tests/library-list.php` und `python3 tests/share-preview.py` testen isoliert Pagination, Volltext-/Notizsuche, Wildcards, Filter, Authentifizierung, Freigabegrenzen und Widerruf. Chromium-Tests bei 320/800/1280px prüfen Fokus, Tab/Escape, Suche, Seitennavigation und Layout. Reale iOS/Android- und Screenreader-Tests sind weiterhin separat erforderlich.
+Prüfung: `node tests/extension-background.cjs` testet den Übergabepfad mit isolierten Chrome-API-Mocks. Browserprüfung auf synthetischer Quelle: Text/Bild/Tabelle, Seitenreihenfolge, Überlappung, Tastatur, Escape/Fokusrückgabe, Vorschau, ausgeschlossene Inhalte. Die Installation und der vollständige Übergabepfad mit einer echten Chrome-Erweiterung bleiben separat zu prüfen.

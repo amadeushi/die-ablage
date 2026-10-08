@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Die ABLAGE Webclipper",
-  "version": "1.1.0",
-  "description": "Artikel, Seiten und Links nach der Anmeldung erfassen und in Die ABLAGE prüfen.",
+  "version": "1.2.0",
+  "description": "Artikel, ausgewählte Bereiche, Seiten und Links in Die ABLAGE prüfen und speichern.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -16,5 +16,19 @@
     "https://*/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "fonts/*.woff2"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
   ]
 }
