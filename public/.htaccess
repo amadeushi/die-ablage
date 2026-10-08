@@ -11,3 +11,5 @@ Header always set X-Content-Type-Options "nosniff"
 Header always set Referrer-Policy "no-referrer"
 Header always set X-Frame-Options "SAMEORIGIN"
 </IfModule>
+
+AddType application/javascript .mjs

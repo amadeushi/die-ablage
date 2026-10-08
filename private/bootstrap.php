@@ -69,7 +69,8 @@ function rate_limit(string $scope): void {
 function password_value(array $v): string {$p=field($v,'password',1024,true);if(mb_strlen($p)<12)problem('Bitte ein Passwort mit mindestens 12 Zeichen wählen.');return $p;}
 function password_digest(string $p): string {return password_hash(hash('sha256',$p),PASSWORD_DEFAULT);}
 function password_matches(string $p,string $hash): bool {return password_verify(hash('sha256',$p),$hash);}
-function public_clip(array $c): array { $c['created_at']=(int)$c['created_at'];$c['archive_key']=$c['archive_key']?'stored':null;return $c; }
+require_once __DIR__.'/pdf-store.php';
+function public_clip(array $c): array { if(($c['type']??'')==='pdf'){ $c['pdf']=pdf_metadata($c['archive_key']??'');$prefix=pdf_index_prefix($c['pdf']);if(isset($c['summary']))$c['summary']=($c['pdf']['filename']??'PDF-Dokument').' · '.($c['pdf']['pages']??'?').' Seiten';foreach(['content','summary'] as $field)if(isset($c[$field])&&str_starts_with($c[$field],$prefix))$c[$field]=substr($c[$field],strlen($prefix)); } $c['created_at']=(int)$c['created_at'];$c['archive_key']=$c['archive_key']?'stored':null;return $c; }
 function shared_data(string $token): array {
  if(!preg_match('/^[a-f0-9]{64}$/D',$token))problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
  $s=sql('SELECT target_id,kind FROM shares WHERE hash=?',[hash('sha256',$token)])->fetch();if(!$s)problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
@@ -77,7 +78,7 @@ function shared_data(string $token): array {
  else{$col=sql('SELECT name FROM collections WHERE id=?',[$s['target_id']])->fetch();$title=$col['name']??null;$clips=sql('SELECT * FROM clips WHERE collection_id=? ORDER BY created_at DESC',[$s['target_id']])->fetchAll();}
  if($title===null)problem('Der geteilte Inhalt ist nicht mehr verfügbar.',404);return ['title'=>$title,'clips'=>$clips];
 }
-function archive_path(string $key): string {if(!preg_match('/^[a-f0-9]{32}\.html$/D',$key))problem('Die Seitenkopie ist nicht verfügbar.',404);return __DIR__.'/archives/'.$key;}
+function archive_path(string $key): string {if(!preg_match('/^[a-f0-9]{32}\.(?:html|pdf)$/D',$key))problem('Die Seitenkopie ist nicht verfügbar.',404);return __DIR__.'/archives/'.$key;}
 function handle_error(Throwable $e): never {
  if(db_active_transaction())db()->rollBack();$status=$e instanceof AppError&&$e->getCode()>=400&&$e->getCode()<=599?(int)$e->getCode():503;
  if($status===503)error_log('Die ABLAGE: '.$e->getMessage());

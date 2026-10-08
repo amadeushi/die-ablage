@@ -7,7 +7,7 @@ import urllib.request, urllib.error
 source=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  root=Path(tmp); (root/'private').mkdir(); (root/'public').mkdir()
- for name in ['bootstrap.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
+ for name in ['bootstrap.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
  for name in ['index.html','api.php','share.php']:shutil.copyfile(source/'public'/name,root/'public'/name)
  shutil.copyfile(source/'router.php',root/'router.php')
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -55,6 +55,30 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
    try:r=client.open(req)
    except urllib.error.HTTPError as e:r=e
    return r.status,json.loads(r.read())
+  # Digital PDFs: protected original, metadata/full-text search and revocable shares.
+  import base64
+  pdf_bytes=(source/'tests/fixtures/digital.pdf').read_bytes()
+  pdf_payload={'action':'pdf','title':'Digitales Testdokument','url':'','file':base64.b64encode(pdf_bytes).decode(),'content':'Seite 2\nVolltextfundwort am Dokumentende.','note':'PDF-Testnotiz','collectionId':'','metadata':{'filename':'digital.pdf','title':'Digitales Testdokument','author':'Testautor','keywords':'Metadatenfundwort','pages':2}}
+  status,pdf_result=post(pdf_payload);assert status==200
+  pdf_id=pdf_result['id'];pdf_detail=json.loads(opener.open(base+'/api/shared?id='+pdf_id).read())
+  assert pdf_detail['type']=='pdf' and pdf_detail['pdf']['author']=='Testautor' and pdf_detail['pdf']['bytes']==len(pdf_bytes)
+  assert '[PDF-Dokumentdaten]' not in pdf_detail['content']
+  for term in ['Volltextfundwort','Metadatenfundwort','digital.pdf']:
+   found=json.loads(opener.open(base+'/api/library?list=1&q='+term).read());assert found['totalResults']==1 and found['clips'][0]['id']==pdf_id
+  response=opener.open(base+'/api/shared?id='+pdf_id+'&pdf=1');assert response.read()==pdf_bytes and response.headers['Content-Type']=='application/pdf' and response.headers['Content-Disposition'].startswith('attachment')
+  assert request('/api/shared?id='+pdf_id+'&pdf=1')[0]==401
+  assert request('/api/shared?id='+pdf_id+'&pdf=1&token='+tokens['clip'])[0]==404
+  status,pdf_share=post({'action':'share','id':pdf_id,'kind':'clip'});assert status==200
+  assert request('/api/shared?id='+pdf_id+'&pdf=1&token='+pdf_share['token'])[0]==200
+  status,pdf_updated=post({'action':'edit','id':pdf_id,'revision':pdf_detail['edit_revision'],'title':'PDF korrigiert','url':'','content':'Bearbeiteter PDF-Lesetext','note':'','collectionId':''});assert status==200
+  assert opener.open(base+'/api/shared?id='+pdf_id+'&pdf=1').read()==pdf_bytes
+  assert json.loads(opener.open(base+'/api/library?list=1&q=Metadatenfundwort').read())['totalResults']==1
+  assert post({**pdf_payload,'file':base64.b64encode(b'not-a-pdf').decode()})[0]==400
+  assert post({'action':'revoke','id':pdf_id,'kind':'clip'})[0]==200
+  assert request('/api/shared?id='+pdf_id+'&pdf=1&token='+pdf_share['token'])[0]==404
+  pdf_key=db.execute('SELECT archive_key FROM clips WHERE id=?',(pdf_id,)).fetchone()[0]
+  assert post({'action':'delete','id':pdf_id})[0]==200
+  assert not (root/'private/archives'/pdf_key).exists() and not (root/'private/archives'/(pdf_key+'.json')).exists()
   edit={'action':'edit','id':'clip','revision':detail['edit_revision'],'title':'Korrigierter Titel','url':'https://example.com/updated','content':'Korrigierter Lesetext','note':'Neue Notiz','collectionId':'empty','archive':'<p>OVERWRITE</p>'}
   status,updated=post(edit);assert status==200 and updated['title']=='Korrigierter Titel'
   assert db.execute('SELECT archive_key,author,created_at FROM clips WHERE id="clip"').fetchone()==(key,'private@example.test',1)
@@ -92,5 +116,5 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
    status,body,headers=request(path);assert status==404 and 'og:title' not in body and 'Öffentliche Testquelle' not in body
   assert request('/api/share?token='+tokens['clip'])[0]==404
   assert request('/api/shared?token='+tokens['clip']+'&id=clip&archive=1')[0]==404
-  print('PASS: authenticated paged library/details/search, anonymous access denied, initial HTML preview, escaped titles, Unicode excerpts, collection/empty, no privileged data, no session cookie, no-store/noindex, sandboxed archive, share scope and revocation.')
+  print('PASS: PDF upload/metadata/search/protected original/edit/revoke/delete, authenticated paged library/details/search, anonymous access denied, initial HTML preview, escaped titles, Unicode excerpts, collection/empty, no privileged data, no session cookie, no-store/noindex, sandboxed archive, share scope and revocation.')
  finally:server.terminate();server.wait(timeout=5);db.close()

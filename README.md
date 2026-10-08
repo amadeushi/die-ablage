@@ -60,3 +60,9 @@ Prüfung: `node tests/extension-background.cjs` testet den Übergabepfad mit iso
 ## Gespeicherte Clips bearbeiten
 
 Clip öffnen und „Bearbeiten“ neben „Teilen“ wählen. Titel, Quellenadresse, Lesetext, Notiz und Sammlung ändern; „Änderungen speichern“ führt zurück zum Clip. Die Originalkopie mit Bildern bleibt unverändert. Nur Ersteller und Inhaber können bearbeiten, auch über die API und den Notiz-Endpunkt. Bestehende Leselinks bleiben gültig und zeigen die Änderungen; Sammlungswechsel ändern den Zugriff über Sammlungslinks. Zwischenzeitliche Änderungen werden mit HTTP 409 zurückgewiesen. Ungespeicherte Änderungen beim Schließen werden im Dialog abgefragt; beim Verlassen der Website erscheint die Browserwarnung. Bei Updates gehört private/clip-edit.php in den privaten App-Ordner. Keine Datenbankmigration nötig.
+
+## Digitale PDFs
+
+„Neuer Clip“ → „PDF-Dokument“ → Datei auswählen → Angaben prüfen → „Clip speichern“. Die Verarbeitung findet zunächst im Browser statt. Erst beim Speichern wird das Original hochgeladen. Volltext aller Seiten und vorhandene Dokumentmetadaten werden durchsuchbar gespeichert. Die PDF lässt sich seitenweise ansehen, herunterladen, einer Sammlung zuordnen und über bestehende Leselinks teilen. Clip-Titel, Lesetext und Notiz sind bearbeitbar; Originaldatei und ursprüngliche Dokumentmetadaten bleiben erhalten.
+
+Grenzen: 4 MB, 500 Seiten, 1 MB extrahierter Text. Scans ohne Textschicht und passwortgeschützte PDFs werden noch nicht unterstützt. PDFs werden zunächst per Upload hinzugefügt; der Chrome-Clipper erfasst PDF-Dateien noch nicht direkt. Originaldateien liegen außerhalb des Webverzeichnisses und sind nur nach Anmeldung oder mit gültiger, passender Freigabe abrufbar. PDF.js wird nur bei Bedarf geladen; die Apache-Lizenz liegt unter public/pdfjs-LICENSE.txt.
