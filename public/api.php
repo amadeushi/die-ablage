@@ -40,7 +40,11 @@ try{
  }
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);
  $m=member();
- if($method==='GET')respond(['user'=>$m,'csrf'=>$_SESSION['csrf'],'clips'=>array_map('public_clip',sql('SELECT * FROM clips ORDER BY created_at DESC')->fetchAll()),'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()]);
+ if($method==='GET'){
+  $base=['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()];
+  if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET)));}
+  respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT * FROM clips ORDER BY created_at DESC')->fetchAll())]));
+ }
  $v=input();$action=$v['action']??'';
  if($action==='collection'){$name=trim(field($v,'name',100,true));$id=uid();sql('INSERT INTO collections(id,name,created_at) VALUES(?,?,?)',[$id,$name,timestamp()]);respond(['id'=>$id]);}
  if($action==='clip'){

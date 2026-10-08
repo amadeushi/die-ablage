@@ -61,3 +61,12 @@ Einzelclips zeigen eine Überschrift und kontinuierlichen Lesetext. Bei Seitenko
 `public/share.php` erzeugt für gültige `/s/<token>`-Links bereits in der ersten HTML-Antwort Titel, einen kurzen Textauszug sowie Open-Graph-/Twitter-Metadaten mit dem ABLAGE-Vorschaubild. `private/share-preview.php` gehört bei Updates ebenfalls in den privaten App-Ordner. Ungültige oder widerrufene Links liefern HTTP 404 ohne Artikelmetadaten; Antworten sind no-store und noindex. Messenger können Vorschauen zwischenspeichern oder deaktivieren.
 
 Prüfung: `python3 tests/share-preview.py` nutzt eine temporäre, isolierte SQLite-Datenbank und prüft HTML-Escaping, Unicode-Auszüge, Sammlungen, Freigabegrenzen, Widerruf, Cache-Header und Archiv-Sandbox. Layout und Clipwechsel wurden in Chromium bei 320/390px und Desktop geprüft; physische Smartphones und echte Messenger bleiben separat zu prüfen.
+
+
+## Audit-Verbesserungen vom 8. Oktober 2026
+
+Private Reader und Dialoge führen den Fokus, begrenzen Tab, unterstützen Escape und stellen die ursprünglichen Auslöser wieder her. Mobile Bedienelemente haben mindestens 44px Zielgröße; Eingabeschrift ist mindestens 16px. Private Seitenkopien sind separat erreichbar, während der Lesetext kontinuierlich scrollt.
+
+Die Bibliothek verwendet `/api/library?list=1` für serverseitige Suche und Filter sowie Seiten mit 40 Kurzfassungen. Volltext und Notizen werden erst beim Öffnen eines Clips über die authentifizierte Detailroute geladen. Der bisherige unpaginierte API-Abruf bleibt für ältere Clients kompatibel. Bei Updates `private/library-list.php`, sämtliche referenzierten JS-Chunks einschließlich `workspace-*.js` und die WOFF2-Schriften mit hochladen; private Konfiguration und Nutzerdaten bleiben bestehen.
+
+Prüfung: `php tests/library-list.php` und `python3 tests/share-preview.py` testen isoliert Pagination, Volltext-/Notizsuche, Wildcards, Filter, Authentifizierung, Freigabegrenzen und Widerruf. Chromium-Tests bei 320/800/1280px prüfen Fokus, Tab/Escape, Suche, Seitennavigation und Layout. Reale iOS/Android- und Screenreader-Tests sind weiterhin separat erforderlich.
