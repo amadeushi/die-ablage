@@ -1,6 +1,6 @@
 export async function pdfLibrary(){
- const lib=await import('pdfjs-dist');
- lib.GlobalWorkerOptions.workerSrc=(await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+ const lib=await import('pdfjs-dist/legacy/build/pdf.mjs');
+ lib.GlobalWorkerOptions.workerSrc=(await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
  return lib;
 }
 export async function readPdf(file:File,progress:(value:string)=>void,signal:AbortSignal){
