@@ -11,9 +11,4 @@ function library_options(): array {
  $sources=[];$authors=[];foreach(sql('SELECT DISTINCT url,author FROM clips')->fetchAll() as $c){$host=mb_strtolower(parse_url($c['url'],PHP_URL_HOST)?:'');if($host)$sources[$host]=true;$authors[$c['author']]=true;}
  $sources=array_keys($sources);$authors=array_keys($authors);sort($sources);sort($authors);return ['tagSuggestions'=>sql('SELECT DISTINCT tag FROM clip_tags ORDER BY tag')->fetchAll(PDO::FETCH_COLUMN),'sourceOptions'=>$sources,'authorOptions'=>$authors];
 }
-function search_hit(array $c,string $q): ?array {
- foreach(['title'=>'Titel','content'=>'Inhalt','note'=>'Notiz','url'=>'Quelle'] as $field=>$label){$text=$c[$field]??'';if($field==='content'&&$c['type']==='pdf'){$prefix=pdf_index_prefix(pdf_metadata($c['archive_key']??''));if(str_starts_with($text,$prefix))$text=substr($text,strlen($prefix));}$pos=mb_stripos($text,$q);if($pos===false)continue;$start=max(0,$pos-70);$page=null;if($field==='content'&&$c['type']==='pdf'){preg_match_all('/(?:^|\n)Seite (\d+)\n/u',mb_substr($text,0,$pos),$pages);$page=$pages[1]? (int)end($pages[1]):null;}
- return ['label'=>$label,'before'=>($start?'…':'').mb_substr($text,$start,$pos-$start),'match'=>mb_substr($text,$pos,mb_strlen($q)),'after'=>mb_substr($text,$pos+mb_strlen($q),130).(mb_strlen($text)>$pos+mb_strlen($q)+130?'…':''),'page'=>$page];}
- foreach($c['tags']??[] as $tag)if(mb_stripos($tag,$q)!==false)return ['label'=>'Tag','before'=>'','match'=>$tag,'after'=>'','page'=>null];
- if($c['type']==='pdf')foreach(pdf_metadata($c['archive_key']??'') as $value)if(is_string($value)&&mb_stripos($value,$q)!==false)return ['label'=>'Dokumentangaben','before'=>'','match'=>$value,'after'=>'','page'=>null];return null;
-}
+function search_hit(array $c,string $q): ?array {return search_first_hit($c,search_terms($q)['positive']);}
