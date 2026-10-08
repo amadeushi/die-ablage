@@ -7,7 +7,7 @@ import urllib.request, urllib.error
 source=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  root=Path(tmp); (root/'private').mkdir(); (root/'public').mkdir()
- for name in ['bootstrap.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
+ for name in ['bootstrap.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
  for name in ['index.html','api.php','share.php']:shutil.copyfile(source/'public'/name,root/'public'/name)
  shutil.copyfile(source/'router.php',root/'router.php')
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -48,6 +48,33 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   assert all('content' not in c and 'note' not in c for c in listing['clips'])
   detail=json.loads(opener.open(base+'/api/shared?id=clip').read());assert detail['content']==title+'\n\n'+excerpt
   search=json.loads(opener.open(base+'/api/library?list=1&q=UNSHARED_SECRET').read());assert search['totalResults']==1 and search['clips'][0]['id']=='other'
+  # Editing preserves original archives and existing share tokens; enforce rights/conflicts.
+  csrf=json.loads(opener.open(base+'/api/auth').read())['csrf']
+  def post(payload,client=opener,csrf_token=csrf):
+   req=urllib.request.Request(base+'/api/library',data=json.dumps(payload).encode(),headers={'Origin':base,'X-CSRF-Token':csrf_token,'Content-Type':'application/json'})
+   try:r=client.open(req)
+   except urllib.error.HTTPError as e:r=e
+   return r.status,json.loads(r.read())
+  edit={'action':'edit','id':'clip','revision':detail['edit_revision'],'title':'Korrigierter Titel','url':'https://example.com/updated','content':'Korrigierter Lesetext','note':'Neue Notiz','collectionId':'empty','archive':'<p>OVERWRITE</p>'}
+  status,updated=post(edit);assert status==200 and updated['title']=='Korrigierter Titel'
+  assert db.execute('SELECT archive_key,author,created_at FROM clips WHERE id="clip"').fetchone()==(key,'private@example.test',1)
+  assert (root/'private/archives'/key).read_text().startswith('<h1>Gespeicherte Testquelle')
+  assert request('/api/share?token='+tokens['clip'])[0]==200
+  assert json.loads(request('/api/share?token='+tokens['clip'])[1])['clips'][0]['content']=='Korrigierter Lesetext'
+  assert post(edit)[0]==409
+  bad={**edit,'revision':updated['edit_revision'],'url':'javascript:alert(1)'};assert post(bad)[0]==400
+  assert post({**edit,'revision':updated['edit_revision'],'collectionId':'missing'})[0]==400
+  # Synthetic creator may edit; a different member cannot, including through note endpoint.
+  db.execute('INSERT INTO members VALUES (?,?,?,?,?)',('private@example.test','Ersteller','member',digest,2))
+  db.execute('INSERT INTO members VALUES (?,?,?,?,?)',('reader@example.test','Anderes Mitglied','member',digest,3));db.commit()
+  def client_for(email):
+   client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()));a=json.loads(client.open(base+'/api/auth').read())
+   req=urllib.request.Request(base+'/api/auth',data=json.dumps({'action':'login','email':email,'password':'test-only-password'}).encode(),headers={'Origin':base,'X-CSRF-Token':a['csrf'],'Content-Type':'application/json'});assert client.open(req).status==200
+   return client,json.loads(client.open(base+'/api/auth').read())['csrf']
+  reader,rc=client_for('reader@example.test');assert post({**edit,'revision':updated['edit_revision']},reader,rc)[0]==403
+  assert post({'action':'note','id':'clip','note':'UNAUTHORIZED'},reader,rc)[0]==403
+  creator,cc=client_for('private@example.test');restore={**edit,'revision':updated['edit_revision'],'title':title,'url':'https://example.com','content':title+'\n\n'+excerpt,'note':'Private Testnotiz','collectionId':'collection'}
+  assert post(restore,creator,cc)[0]==200
   status,body,headers=request('/s/'+tokens['clip']);assert status==200
   assert html.escape(title,quote=True) in body and '$1' in body
   assert '<script>alert(1)</script>' not in body

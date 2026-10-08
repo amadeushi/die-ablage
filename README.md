@@ -56,3 +56,7 @@ Mehrere Bereiche werden in Seitenreihenfolge gespeichert, überlappende Bereiche
 Update: ZIP neu herunterladen und in den bisherigen Erweiterungsordner entpacken. In Chrome unter chrome://extensions bei Die ABLAGE auf „Neu laden“ klicken; die Quellseite ebenfalls neu laden. Alternativ einen neuen Ordner entpacken und die bisherige Erweiterung ersetzen.
 
 Prüfung: `node tests/extension-background.cjs` testet den Übergabepfad mit isolierten Chrome-API-Mocks. Browserprüfung auf synthetischer Quelle: Text/Bild/Tabelle, Seitenreihenfolge, Überlappung, Tastatur, Escape/Fokusrückgabe, Vorschau, ausgeschlossene Inhalte. Die Installation und der vollständige Übergabepfad mit einer echten Chrome-Erweiterung bleiben separat zu prüfen.
+
+## Gespeicherte Clips bearbeiten
+
+Clip öffnen und „Bearbeiten“ neben „Teilen“ wählen. Titel, Quellenadresse, Lesetext, Notiz und Sammlung ändern; „Änderungen speichern“ führt zurück zum Clip. Die Originalkopie mit Bildern bleibt unverändert. Nur Ersteller und Inhaber können bearbeiten, auch über die API und den Notiz-Endpunkt. Bestehende Leselinks bleiben gültig und zeigen die Änderungen; Sammlungswechsel ändern den Zugriff über Sammlungslinks. Zwischenzeitliche Änderungen werden mit HTTP 409 zurückgewiesen. Ungespeicherte Änderungen beim Schließen werden im Dialog abgefragt; beim Verlassen der Website erscheint die Browserwarnung. Bei Updates gehört private/clip-edit.php in den privaten App-Ordner. Keine Datenbankmigration nötig.
