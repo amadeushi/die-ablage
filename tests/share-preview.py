@@ -7,7 +7,7 @@ import urllib.request, urllib.error
 source=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  root=Path(tmp); (root/'private').mkdir(); (root/'public').mkdir()
- for name in ['bootstrap.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
+ for name in ['bootstrap.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
  for name in ['index.html','api.php','share.php']:shutil.copyfile(source/'public'/name,root/'public'/name)
  shutil.copyfile(source/'router.php',root/'router.php')
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -15,7 +15,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  config={'dsn':'sqlite:'+str(dbfile),'user':'','password':'','origin':base,'setup_key':'isolated-test'}
  (root/'private/config.php').write_text('<?php return json_decode('+json.dumps(json.dumps(config))+',true);')
  (root/'private/installed.lock').touch();db=sqlite3.connect(dbfile)
- db.executescript('CREATE TABLE clips(id TEXT,title TEXT,url TEXT,type TEXT,content TEXT,note TEXT,collection_id TEXT,author TEXT,archive_key TEXT,created_at INTEGER);CREATE TABLE collections(id TEXT,name TEXT,created_at INTEGER);CREATE TABLE members(email TEXT,name TEXT,role TEXT,password_hash TEXT,created_at INTEGER);CREATE TABLE shares(id TEXT,hash TEXT,target_id TEXT,kind TEXT,created_at INTEGER);')
+ db.executescript('CREATE TABLE clip_tags(clip_id TEXT,tag TEXT,PRIMARY KEY(clip_id,tag));CREATE TABLE clips(id TEXT,title TEXT,url TEXT,type TEXT,content TEXT,note TEXT,collection_id TEXT,author TEXT,archive_key TEXT,created_at INTEGER);CREATE TABLE collections(id TEXT,name TEXT,created_at INTEGER);CREATE TABLE members(email TEXT,name TEXT,role TEXT,password_hash TEXT,created_at INTEGER);CREATE TABLE shares(id TEXT,hash TEXT,target_id TEXT,kind TEXT,created_at INTEGER);')
  title='Recherche $1 & "<script>alert(1)</script>" ä'
  excerpt='Öffentliche Testquelle mit Umlauten und ausreichend Inhalt. '*8
  key='a'*32+'.html';(root/'private/archives').mkdir();(root/'private/archives'/key).write_text('<h1>Gespeicherte Testquelle</h1><script>alert(1)</script>')
@@ -48,6 +48,12 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   assert all('content' not in c and 'note' not in c for c in listing['clips'])
   detail=json.loads(opener.open(base+'/api/shared?id=clip').read());assert detail['content']==title+'\n\n'+excerpt
   search=json.loads(opener.open(base+'/api/library?list=1&q=UNSHARED_SECRET').read());assert search['totalResults']==1 and search['clips'][0]['id']=='other'
+  db.execute('INSERT INTO clip_tags VALUES (?,?)',('clip','Verkehr'));db.commit()
+  assert json.loads(opener.open(base+'/api/library?list=1&tag=Verkehr&source=example.com').read())['totalResults']==1
+  assert json.loads(opener.open(base+'/api/library?list=1&q=Verkehr').read())['clips'][0]['hit']['label']=='Tag'
+  assert 'Verkehr' in json.loads(opener.open(base+'/api/shared?id=clip').read())['tags']
+  assert json.loads(opener.open(base+'/api/library?list=1').read())['tagSuggestions']==['Verkehr']
+  detail=json.loads(opener.open(base+'/api/shared?id=clip').read())
   # Editing preserves original archives and existing share tokens; enforce rights/conflicts.
   csrf=json.loads(opener.open(base+'/api/auth').read())['csrf']
   def post(payload,client=opener,csrf_token=csrf):
@@ -58,13 +64,16 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   # Digital PDFs: protected original, metadata/full-text search and revocable shares.
   import base64
   pdf_bytes=(source/'tests/fixtures/digital.pdf').read_bytes()
-  pdf_payload={'action':'pdf','title':'Digitales Testdokument','url':'','file':base64.b64encode(pdf_bytes).decode(),'content':'Seite 2\nVolltextfundwort am Dokumentende.','note':'PDF-Testnotiz','collectionId':'','metadata':{'filename':'digital.pdf','title':'Digitales Testdokument','author':'Testautor','keywords':'Metadatenfundwort','pages':2}}
+  pdf_payload={'action':'pdf','title':'Digitales Testdokument','url':'','file':base64.b64encode(pdf_bytes).decode(),'content':'Seite 2\nVolltextfundwort am Dokumentende.','note':'PDF-Testnotiz','collectionId':'','tags':['PDF','Verkehr'],'metadata':{'filename':'digital.pdf','title':'Digitales Testdokument','author':'Testautor','keywords':'Metadatenfundwort','pages':2}}
   status,pdf_result=post(pdf_payload);assert status==200
   pdf_id=pdf_result['id'];pdf_detail=json.loads(opener.open(base+'/api/shared?id='+pdf_id).read())
   assert pdf_detail['type']=='pdf' and pdf_detail['pdf']['author']=='Testautor' and pdf_detail['pdf']['bytes']==len(pdf_bytes)
   assert '[PDF-Dokumentdaten]' not in pdf_detail['content']
   for term in ['Volltextfundwort','Metadatenfundwort','digital.pdf']:
    found=json.loads(opener.open(base+'/api/library?list=1&q='+term).read());assert found['totalResults']==1 and found['clips'][0]['id']==pdf_id
+  assert json.loads(opener.open(base+'/api/library?list=1&q=Volltextfundwort').read())['clips'][0]['hit']['page']==2
+  assert pdf_detail['tags']==['PDF','Verkehr']
+  assert post({**pdf_payload,'tags':['Tag'+str(i) for i in range(13)]})[0]==400
   response=opener.open(base+'/api/shared?id='+pdf_id+'&pdf=1');assert response.read()==pdf_bytes and response.headers['Content-Type']=='application/pdf' and response.headers['Content-Disposition'].startswith('attachment')
   assert request('/api/shared?id='+pdf_id+'&pdf=1')[0]==401
   assert request('/api/shared?id='+pdf_id+'&pdf=1&token='+tokens['clip'])[0]==404
@@ -80,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   assert post({'action':'delete','id':pdf_id})[0]==200
   assert not (root/'private/archives'/pdf_key).exists() and not (root/'private/archives'/(pdf_key+'.json')).exists()
   edit={'action':'edit','id':'clip','revision':detail['edit_revision'],'title':'Korrigierter Titel','url':'https://example.com/updated','content':'Korrigierter Lesetext','note':'Neue Notiz','collectionId':'empty','archive':'<p>OVERWRITE</p>'}
-  status,updated=post(edit);assert status==200 and updated['title']=='Korrigierter Titel'
+  status,updated=post(edit);assert status==200 and updated['title']=='Korrigierter Titel' and updated['tags']==['Verkehr']
   assert db.execute('SELECT archive_key,author,created_at FROM clips WHERE id="clip"').fetchone()==(key,'private@example.test',1)
   assert (root/'private/archives'/key).read_text().startswith('<h1>Gespeicherte Testquelle')
   assert request('/api/share?token='+tokens['clip'])[0]==200

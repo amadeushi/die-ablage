@@ -44,7 +44,7 @@ try{
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);
  $m=member();
  if($method==='GET'){
-  $base=['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()];
+  $base=array_merge(library_options(),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()]);
   if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET)));}
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT * FROM clips ORDER BY created_at DESC')->fetchAll())]));
  }
@@ -53,6 +53,7 @@ try{
  if($action==='edit')respond(clip_edit($m,$v));
  if($action==='collection'){$name=trim(field($v,'name',100,true));$id=uid();sql('INSERT INTO collections(id,name,created_at) VALUES(?,?,?)',[$id,$name,timestamp()]);respond(['id'=>$id]);}
  if($action==='clip'){
+  $tags=tags_value($v);
   $url=field($v,'url',10000,true);$u=parse_url($url);if(!$u||!in_array($u['scheme']??'',['http','https'],true)||empty($u['host'])||isset($u['user'])||isset($u['pass'])||!filter_var($url,FILTER_VALIDATE_URL))problem('Bitte eine gültige Website-Adresse mit https:// oder http:// eingeben.');
   $title=trim(field($v,'title',300,true));$type=field($v,'type',16,true);if(!in_array($type,['article','page','link'],true))problem('Bitte eine Clip-Art wählen.');
   $content=field($v,'content',1000000,$type!=='link');$note=field($v,'note',20000);$collection=field($v,'collectionId',36)?:null;
@@ -60,12 +61,12 @@ try{
   $archive=field($v,'archive',5000000);if(strlen($archive)>5000000)problem('Die Seitenkopie ist zu groß. Bitte eine Auswahl clippen.');
   $id=uid();$key=null;
   if($archive&&$type!=='link'){$dir=dirname(__DIR__).'/private/archives';if(!is_dir($dir)&&!mkdir($dir,0700,true))problem('Die Seitenkopie kann nicht gespeichert werden.',503);$key=bin2hex(random_bytes(16)).'.html';if(file_put_contents(archive_path($key),$archive,LOCK_EX)===false)problem('Die Seitenkopie kann nicht gespeichert werden.',503);chmod(archive_path($key),0600);}
-  try{sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);}catch(Throwable $e){if($key)unlink(archive_path($key));throw $e;}
+  try{db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if($key)unlink(archive_path($key));throw $e;}
   respond(['id'=>$id]);
  }
  if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT * FROM clips WHERE id=?',[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);sql('UPDATE clips SET note=? WHERE id=?',[field($v,'note',20000),$id]);respond(['ok'=>true]);}
  if($action==='delete'){
-  $id=field($v,'id',36,true);$c=sql('SELECT archive_key FROM clips WHERE id=?',[$id])->fetch();db()->beginTransaction();sql("DELETE FROM shares WHERE target_id=? AND kind='clip'",[$id]);sql('DELETE FROM clips WHERE id=?',[$id]);db()->commit();if($c&&$c['archive_key']&&is_file(archive_path($c['archive_key'])))unlink(archive_path($c['archive_key']));if($c&&$c['archive_key']&&is_file(archive_path($c['archive_key']).'.json'))unlink(archive_path($c['archive_key']).'.json');respond(['ok'=>true]);
+  $id=field($v,'id',36,true);$c=sql('SELECT archive_key FROM clips WHERE id=?',[$id])->fetch();db()->beginTransaction();sql("DELETE FROM shares WHERE target_id=? AND kind='clip'",[$id]);sql('DELETE FROM clip_tags WHERE clip_id=?',[$id]);sql('DELETE FROM clips WHERE id=?',[$id]);db()->commit();if($c&&$c['archive_key']&&is_file(archive_path($c['archive_key'])))unlink(archive_path($c['archive_key']));if($c&&$c['archive_key']&&is_file(archive_path($c['archive_key']).'.json'))unlink(archive_path($c['archive_key']).'.json');respond(['ok'=>true]);
  }
  if($action==='share'||$action==='revoke'){
   $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);if(!in_array($kind,['clip','collection'],true))problem('Bitte den Freigabetyp prüfen.');

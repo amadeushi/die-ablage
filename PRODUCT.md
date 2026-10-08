@@ -19,4 +19,7 @@ Speichern erst nach Vorschau. Privat bis zur Freigabe. Quellen erhalten. Zugriff
 Das Tool wird ein Projekt von Die PARTEI (Nutzerangabe). Die bestätigte Projektzugehörigkeit soll visuell erkennbar sein; das Recherchewerkzeug und seine Zugriffsfunktionen bleiben erhalten. Der bestätigte Projektname ist Die ABLAGE. Die Zeile „Wissen ist Macht. Ablage auch.“ bleibt bestehen. Kein spezifischer PARTEI-Verband wurde genannt.
 
 ## Hosting-Ausgabe
-Diese eigenständige ALL-INKL-Ausgabe verwendet PHP ab 8.2, MariaDB/MySQL und privaten Dateispeicher. Eigene E-Mail-/Passwort-Anmeldung; Inhaber lädt maximal neun weitere Personen über einmalige, 48 Stunden gültige Links ein. Geheime Leselinks bleiben unabhängig von Teamkonten. Quellseiten-Anmeldung erfolgt weiterhin ausschließlich auf der Originalwebsite.
+Die ALL-INKL-Ausgabe in all-inkl/ verwendet PHP ab 8.2, MariaDB/MySQL und privaten Dateispeicher. Eigene E-Mail-/Passwort-Anmeldung; Inhaber lädt maximal neun weitere Personen über einmalige, 48 Stunden gültige Links ein. Geheime Leselinks bleiben unabhängig von Teamkonten. Quellseiten-Anmeldung erfolgt weiterhin ausschließlich auf der Originalwebsite.
+
+## Recherche-Suche
+Tags ergänzen Sammlungen; Filter nach Tag, Quelldomain, Ersteller, Clip-Art und gespeichertem Zeitraum werden kombiniert. Treffer enthalten Textausschnitt und bei PDF-Lesetext die Seitenangabe. Spätere Textmarkierungen und Kommentare bleiben intern bis zu ausdrücklicher Freigabe.

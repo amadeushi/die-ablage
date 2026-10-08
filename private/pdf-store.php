@@ -9,7 +9,7 @@ function pdf_index_prefix(array $meta): string {
  return "[PDF-Dokumentdaten]\n".implode("\n",array_map(fn($key)=>$key.': '.($meta[$key]??''),['filename','title','author','subject','keywords','creationDate','modificationDate','pages']))."\n\n[PDF-Lesetext]\n";
 }
 function pdf_upload(array $m,array $v): array {
- $encoded=field($v,'file',5600000,true);$bytes=base64_decode($encoded,true);
+ $tags=tags_value($v);$encoded=field($v,'file',5600000,true);$bytes=base64_decode($encoded,true);
  if($bytes===false||strlen($bytes)>4194304||strlen($bytes)<8||!str_contains(substr($bytes,0,1024),'%PDF-')||!str_contains(substr($bytes,-2048),'%%EOF'))problem('Bitte eine gültige PDF-Datei mit maximal 4 MB wählen.');
  $content=field($v,'content',1000000,true);if(strlen($content)>1000000)problem('Der extrahierte PDF-Text ist zu groß (maximal 1 MB).');
  $title=trim(field($v,'title',300,true));if(!$title)problem('Bitte einen Titel eingeben.');
@@ -26,8 +26,8 @@ function pdf_upload(array $m,array $v): array {
  try{
   if(file_put_contents($path,$bytes,LOCK_EX)===false)problem('Die PDF-Datei kann nicht gespeichert werden.',503);chmod($path,0600);
   if(file_put_contents($path.'.json',json_encode($meta,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),LOCK_EX)===false)problem('Die Dokumentangaben können nicht gespeichert werden.',503);chmod($path.'.json',0600);
-  sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,'pdf',pdf_index_prefix($meta).$content,$note,$collection,$m['email'],$key,timestamp()]);
- }catch(Throwable $e){if(is_file($path))unlink($path);if(is_file($path.'.json'))unlink($path.'.json');throw $e;}
+  db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,'pdf',pdf_index_prefix($meta).$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);db()->commit();
+ }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if(is_file($path))unlink($path);if(is_file($path.'.json'))unlink($path.'.json');throw $e;}
  return ['id'=>$id];
 }
 function pdf_download(array $clip): never {
