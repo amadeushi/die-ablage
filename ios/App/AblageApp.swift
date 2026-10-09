@@ -63,7 +63,7 @@ import WebKit
     func receive(_ url: URL) {
         guard url.scheme == "dieablage", url.host == "capture", let id = url.pathComponents.last, UUID(uuidString: id) != nil else { return }
         do { _ = try CaptureStore.load(id); captureID = id; webView.load(URLRequest(url: AblageConfig.origin)) }
-        catch { error = "Die Auswahl ist nicht mehr verfügbar. Bitte innerhalb von zehn Minuten aus Safari übernehmen." }
+        catch { self.error = "Die Auswahl ist nicht mehr verfügbar. Bitte innerhalb von zehn Minuten aus Safari übernehmen." }
     }
 }
 struct LibraryBrowser: UIViewRepresentable {

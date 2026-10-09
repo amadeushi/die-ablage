@@ -34,7 +34,13 @@ Dieses Projekt enthält eine SwiftUI-App mit eingebetteter bestehender Ablage un
 
 ## Stand der Validierung
 
-JavaScript-Syntax, Swift-Syntax und Projekt-/Property-List-Struktur sind lokal geprüft. Die Übergabe-Logik der Safari-Skripte hat automatisierte Tests mit simulierten Browser-APIs. Es wurde **kein iOS-Build und kein Geräte-/Safari-Test** durchgeführt: Auf der Entwicklungsmaschine fehlt vollständiges Xcode samt iOS-SDK. API-Kompatibilität, Signierung und tatsächlicher App-Wechsel müssen deshalb mit Xcode und iPhone verifiziert werden. Dieser Stand ist kein veröffentlichungsfertiges App-Store-Paket.
+Am 9. Oktober 2026 wurden mit **Xcode 27.0 (27A266a)** beide Targets erfolgreich gebaut:
+
+- Debug für iOS Simulator (`iphonesimulator`, ohne Signierung).
+- Debug für echte iPhones (`iphoneos`, ohne Signierung).
+- Die Safari-Übergabetests mit simulierten Browser-APIs bestehen ebenfalls.
+
+Ein Swift-Fehler bei der Fehleranzeige wurde behoben; das gemeinsame App-Scheme ist im Projekt enthalten. Ein unsignierter Geräte-Build ist noch nicht auf einem iPhone installierbar. Zum Prüfzeitpunkt lädt Xcode die Simulator-Laufzeit noch herunter, und in Xcode ist noch kein Apple-Konto für Gerätesignierung angemeldet. Deshalb sind App-Start, Safari-Bereichsauswahl, App-Wechsel und Anmeldung noch nicht praktisch getestet. Dieser Stand ist kein veröffentlichungsfertiges App-Store-Paket.
 
 Vor TestFlight/App Store außerdem App-Icons, Datenschutzangaben, Review-Zugang und Distribution-Signing ergänzen. Das Backend auf ALL-INKL bleibt bestehen. Für diesen Prototyp braucht es keinen zusätzlichen Server und keine App-Store-Veröffentlichung.
 
