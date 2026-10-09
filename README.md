@@ -116,3 +116,6 @@ Angemeldete Mitglieder speichern Markierungen ausschließlich in ihrem eigenen K
 Passage und Kontext werden gespeichert. Eindeutige Passagen werden nach Textänderungen wiedergefunden. Mehrdeutige oder entfernte Stellen werden nicht hervorgehoben; die Markierungsliste zeigt einen Hinweis. Originaltexte und Originaldateien bleiben unverändert.
 
 Update: `php private/migrate-reader-marks.php` vor Austausch des App-Codes ausführen (optional privates Verzeichnis als Argument). Erstellt ausschließlich `reader_marks`. Auch `private/reader-marks.php` gehört zum Update.
+
+## Suche und Werkzeugleiste in Leselinks
+Die beim Scrollen erreichbare Leiste bündelt Suchen, Schrift, Textmarker und Quelle. Die lokale Volltextsuche berücksichtigt Titel, gespeicherte Lesetexte einschließlich PDF-Text und Notizen. Sie durchsucht ausschließlich die vom Leselink freigegebenen Clips; Suchbegriffe werden nicht an den Server geschickt. Suchtreffer werden rosa hervorgehoben, persönliche Markierungen bleiben gelb. Pfeile und Enter wechseln zwischen sichtbaren Treffern im geöffneten Clip. Bei Sammlungen zeigt die Ergebnisauswahl passende Clips; die übrigen Inhalte bleiben weiterhin über die Clipauswahl erreichbar. Die Suche berücksichtigt Groß-/Kleinschreibung nicht und sucht nach dem eingegebenen Begriff. Originalseitenkopien und Bilder werden nicht durchsucht.
