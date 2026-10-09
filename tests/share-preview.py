@@ -7,7 +7,7 @@ import urllib.request, urllib.error
 source=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  root=Path(tmp); (root/'private').mkdir(); (root/'public').mkdir()
- for name in ['bootstrap.php','search.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
+ for name in ['library-tools.php','bootstrap.php','search.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
  for name in ['index.html','api.php','share.php']:shutil.copyfile(source/'public'/name,root/'public'/name)
  shutil.copyfile(source/'router.php',root/'router.php')
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  db.execute('INSERT INTO clips VALUES (?,?,?,?,?,?,?,?,?,?)',('other','Nicht freigegeben','https://example.com','article','UNSHARED_SECRET','','other','private@example.test',None,2))
  tokens={kind:hashlib.sha256(kind.encode()).hexdigest() for kind in ['clip','collection','empty']}
  for kind,token in tokens.items():db.execute('INSERT INTO shares VALUES (?,?,?,?,?)',(kind,hashlib.sha256(token.encode()).hexdigest(),kind,'clip' if kind=='clip' else 'collection',1))
+ db.executescript('CREATE TABLE clip_trash(clip_id TEXT PRIMARY KEY,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT,PRIMARY KEY(clip_id,member_email));CREATE TABLE saved_searches(id TEXT PRIMARY KEY,member_email TEXT,name TEXT,params TEXT,created_at INTEGER);')
  db.commit()
  server=subprocess.Popen(['php','-S',f'127.0.0.1:{port}','-t',str(root/'public'),str(root/'router.php')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  def request(path):
@@ -87,7 +88,11 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   assert request('/api/shared?id='+pdf_id+'&pdf=1&token='+pdf_share['token'])[0]==404
   pdf_key=db.execute('SELECT archive_key FROM clips WHERE id=?',(pdf_id,)).fetchone()[0]
   assert post({'action':'delete','id':pdf_id})[0]==200
-  assert not (root/'private/archives'/pdf_key).exists() and not (root/'private/archives'/(pdf_key+'.json')).exists()
+  assert (root/'private/archives'/pdf_key).exists() and (root/'private/archives'/(pdf_key+'.json')).exists()
+  assert json.loads(opener.open(base+'/api/library?list=1&view=trash').read())['clips'][0]['id']==pdf_id
+  assert post({'action':'restore','id':pdf_id})[0]==200
+  assert opener.open(base+'/api/shared?id='+pdf_id+'&pdf=1').read()==pdf_bytes
+  assert post({'action':'delete','id':pdf_id})[0]==200
   edit={'action':'edit','id':'clip','revision':detail['edit_revision'],'title':'Korrigierter Titel','url':'https://example.com/updated','content':'Korrigierter Lesetext','note':'Neue Notiz','collectionId':'empty','archive':'<p>OVERWRITE</p>'}
   status,updated=post(edit);assert status==200 and updated['title']=='Korrigierter Titel' and updated['tags']==['Verkehr']
   assert db.execute('SELECT archive_key,author,created_at FROM clips WHERE id="clip"').fetchone()==(key,'private@example.test',1)
@@ -108,6 +113,46 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   assert post({'action':'note','id':'clip','note':'UNAUTHORIZED'},reader,rc)[0]==403
   creator,cc=client_for('private@example.test');restore={**edit,'revision':updated['edit_revision'],'title':title,'url':'https://example.com','content':title+'\n\n'+excerpt,'note':'Private Testnotiz','collectionId':'collection'}
   assert post(restore,creator,cc)[0]==200
+  # Personal searches/favorites, duplicate guard, atomic bulk, restorable trash, ZIP.
+  assert post({'action':'favorite','id':'clip','favorite':True})[0]==200
+  assert json.loads(opener.open(base+'/api/library?list=1&view=favorites').read())['totalResults']==1
+  assert json.loads(reader.open(base+'/api/library?list=1&view=favorites').read())['totalResults']==0
+  assert 'favorite' not in json.loads(request('/api/share?token='+tokens['clip'])[1])['clips'][0]
+  status,saved=post({'action':'saveSearch','name':'Meine Recherche','params':{'q':'Verkehr','view':'all','type':'all','tag':'Verkehr'}});assert status==200
+  assert json.loads(opener.open(base+'/api/library?list=1').read())['savedSearches'][0]['params']['q']=='Verkehr'
+  assert json.loads(reader.open(base+'/api/library?list=1').read())['savedSearches']==[]
+  assert post({'action':'removeSearch','id':saved['id']},reader,rc)[0]==200
+  assert len(json.loads(opener.open(base+'/api/library?list=1').read())['savedSearches'])==1
+  dup=json.loads(opener.open(base+'/api/library?duplicates=1&url=https%3A%2F%2Fexample.com%2F%23section').read());assert len(dup['duplicates'])==2
+  payload={'action':'clip','url':'https://example.com','title':'Weitere Kopie','type':'link','content':'','note':'','tags':[]}
+  assert post(payload)[0]==409
+  status,copy_result=post({**payload,'allowDuplicate':True});assert status==200
+  assert post({'action':'bulk','ids':['clip','other'],'operation':'tags','tags':['Team']},reader,rc)[0]==403
+  assert db.execute('SELECT COUNT(*) FROM clip_tags WHERE tag="Team"').fetchone()[0]==0
+  assert post({'action':'bulk','ids':['clip','other'],'operation':'tags','tags':['Team']})[0]==200
+  assert post({'action':'bulk','ids':['clip','other'],'operation':'collection','collectionId':'collection'})[0]==200
+  assert post({'action':'delete','id':'clip'},reader,rc)[0]==403
+  status,new_share=post({'action':'share','id':'clip','kind':'clip'});assert status==200
+  assert post({'action':'delete','id':'clip'})[0]==200
+  assert request('/api/share?token='+new_share['token'])[0]==404
+  assert all(c['id']!='clip' for c in json.loads(request('/api/share?token='+tokens['collection'])[1])['clips'])
+  assert post({'action':'note','id':'clip','note':'bad'})[0]==404
+  assert post({'action':'share','id':'clip','kind':'clip'})[0]==404
+  assert post({'action':'restore','id':'clip'})[0]==200
+  assert request('/api/share?token='+new_share['token'])[0]==404
+  assert any(c['id']=='clip' for c in json.loads(request('/api/share?token='+tokens['collection'])[1])['clips'])
+  # Restore previous share token only in this isolated fixture for existing preview tests.
+  db.execute('INSERT INTO shares VALUES (?,?,?,?,?)',('clip',hashlib.sha256(tokens['clip'].encode()).hexdigest(),'clip','clip',1));db.commit()
+  assert post({'action':'restore','id':pdf_id})[0]==200
+  assert post({'action':'bulk','ids':[pdf_id],'operation':'collection','collectionId':'collection'})[0]==200
+  export=urllib.request.Request(base+'/api/library',data=json.dumps({'action':'export','id':'collection'}).encode(),headers={'Origin':base,'X-CSRF-Token':csrf,'Content-Type':'application/json'})
+  import zipfile,io
+  response=opener.open(export);assert response.headers['Content-Type']=='application/zip'
+  with zipfile.ZipFile(io.BytesIO(response.read())) as z:
+   manifest=json.loads(z.read('sammlung.json'));assert manifest['collection']=='Testsammlung' and len(manifest['clips'])==3
+   assert z.read('pdf/'+pdf_id+'.pdf')==pdf_bytes
+   assert 'Private Testnotiz' in z.read('clips/clip.md').decode()
+   assert not any('config' in n or 'session' in n for n in z.namelist())
   status,body,headers=request('/s/'+tokens['clip']);assert status==200
   assert html.escape(title,quote=True) in body and '$1' in body
   assert '<script>alert(1)</script>' not in body

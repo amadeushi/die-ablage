@@ -31,10 +31,10 @@ try{
  if($route==='shared'){
   if($method!=='GET')problem('Nur Lesen ist erlaubt.',405);$id=(string)($_GET['id']??'');
   if(isset($_GET['token'])){$s=shared_data((string)$_GET['token']);$clip=null;foreach($s['clips'] as $c)if($c['id']===$id)$clip=$c;}
-  else{member();$clip=sql('SELECT * FROM clips WHERE id=?',[$id])->fetch();}
+  else{member();$clip=sql('SELECT c.*,(SELECT deleted_at FROM clip_trash tr WHERE tr.clip_id=c.id) AS deleted_at FROM clips c WHERE id=?',[$id])->fetch();}
   if(!$clip)problem('Dieser Clip ist nicht verfügbar.',404);
   if(isset($_GET['pdf']))pdf_download($clip);
-  if(!isset($_GET['archive']))respond(isset($_GET['token'])?public_clip($clip):array_merge(public_clip($clip),['edit_revision'=>clip_edit_revision($clip)]));
+  if(!isset($_GET['archive']))respond(isset($_GET['token'])?public_clip($clip):array_merge(public_clip($clip),['edit_revision'=>clip_edit_revision($clip),'favorite'=>(bool)sql('SELECT COUNT(*) FROM clip_favorites WHERE clip_id=? AND member_email=?',[$id,member()['email']])->fetchColumn()]));
   if($clip['type']==='pdf')problem('Bitte die PDF-Datei über den PDF-Link öffnen.',404);
   if(!$clip['archive_key']||!is_file(archive_path($clip['archive_key'])))problem('Die Seitenkopie ist nicht verfügbar.',404);
   header("Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");header('Content-Type: text/html; charset=utf-8');
@@ -44,15 +44,26 @@ try{
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);
  $m=member();
  if($method==='GET'){
-  $base=array_merge(library_options(),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()]);
-  if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET)));}
-  respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT * FROM clips ORDER BY created_at DESC')->fetchAll())]));
+  if(isset($_GET['duplicates']))respond(['duplicates'=>clip_duplicates(field($_GET,'url',10000))]);
+  $base=array_merge(library_options(),library_personal($m),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()]);
+  if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET,$m['email'])));}
+  respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
  $v=input();$action=$v['action']??'';
- if($action==='pdf')respond(pdf_upload($m,$v));
+ if($action==='pdf'){duplicate_gate($v);respond(pdf_upload($m,$v));}
+ if($action==='export')collection_export($v);
+ if($action==='saveSearch')respond(library_search_save($m,$v));
+ if($action==='removeSearch'){sql('DELETE FROM saved_searches WHERE id=? AND member_email=?',[field($v,'id',36,true),$m['email']]);respond(['ok'=>true]);}
+ if($action==='bulk')respond(library_bulk($m,$v));
+ if($action==='restore')respond(clip_trash_change($m,$v,true));
+ if($action==='favorite'){
+  $id=field($v,'id',36,true);if(!sql('SELECT c.id FROM clips c WHERE id=? AND '.active_clip_condition(),[$id])->fetch())problem('Dieser Clip ist nicht verfügbar.',404);
+  if(($v['favorite']??false)===true){if(!sql('SELECT clip_id FROM clip_favorites WHERE clip_id=? AND member_email=?',[$id,$m['email']])->fetch())sql('INSERT INTO clip_favorites(clip_id,member_email) VALUES(?,?)',[$id,$m['email']]);}else sql('DELETE FROM clip_favorites WHERE clip_id=? AND member_email=?',[$id,$m['email']]);respond(['ok'=>true]);
+ }
  if($action==='edit')respond(clip_edit($m,$v));
  if($action==='collection'){$name=trim(field($v,'name',100,true));$id=uid();sql('INSERT INTO collections(id,name,created_at) VALUES(?,?,?)',[$id,$name,timestamp()]);respond(['id'=>$id]);}
  if($action==='clip'){
+  duplicate_gate($v);
   $tags=tags_value($v);
   $url=field($v,'url',10000,true);$u=parse_url($url);if(!$u||!in_array($u['scheme']??'',['http','https'],true)||empty($u['host'])||isset($u['user'])||isset($u['pass'])||!filter_var($url,FILTER_VALIDATE_URL))problem('Bitte eine gültige Website-Adresse mit https:// oder http:// eingeben.');
   $title=trim(field($v,'title',300,true));$type=field($v,'type',16,true);if(!in_array($type,['article','page','link'],true))problem('Bitte eine Clip-Art wählen.');
@@ -64,14 +75,12 @@ try{
   try{db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if($key)unlink(archive_path($key));throw $e;}
   respond(['id'=>$id]);
  }
- if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT * FROM clips WHERE id=?',[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);sql('UPDATE clips SET note=? WHERE id=?',[field($v,'note',20000),$id]);respond(['ok'=>true]);}
- if($action==='delete'){
-  $id=field($v,'id',36,true);$c=sql('SELECT archive_key FROM clips WHERE id=?',[$id])->fetch();db()->beginTransaction();sql("DELETE FROM shares WHERE target_id=? AND kind='clip'",[$id]);sql('DELETE FROM clip_tags WHERE clip_id=?',[$id]);sql('DELETE FROM clips WHERE id=?',[$id]);db()->commit();if($c&&$c['archive_key']&&is_file(archive_path($c['archive_key'])))unlink(archive_path($c['archive_key']));if($c&&$c['archive_key']&&is_file(archive_path($c['archive_key']).'.json'))unlink(archive_path($c['archive_key']).'.json');respond(['ok'=>true]);
- }
+ if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT c.* FROM clips c WHERE id=? AND '.active_clip_condition(),[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);sql('UPDATE clips SET note=? WHERE id=?',[field($v,'note',20000),$id]);respond(['ok'=>true]);}
+ if($action==='delete')respond(clip_trash_change($m,$v,false));
  if($action==='share'||$action==='revoke'){
   $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);if(!in_array($kind,['clip','collection'],true))problem('Bitte den Freigabetyp prüfen.');
   if($action==='revoke'){sql('DELETE FROM shares WHERE target_id=? AND kind=?',[$id,$kind]);respond(['ok'=>true]);}
-  $table=$kind==='clip'?'clips':'collections';if(!sql('SELECT id FROM '.$table.' WHERE id=?',[$id])->fetch())problem('Dieser Inhalt ist nicht verfügbar.',404);
+  $table=$kind==='clip'?'clips':'collections';if(!sql('SELECT id FROM '.$table.' c WHERE id=?'.($kind==='clip'?' AND '.active_clip_condition():''),[$id])->fetch())problem('Dieser Inhalt ist nicht verfügbar.',404);
   $token=secret();sql('INSERT INTO shares(id,hash,target_id,kind,created_at) VALUES(?,?,?,?,?)',[uid(),hash('sha256',$token),$id,$kind,timestamp()]);respond(['token'=>$token]);
  }
  if($action==='member'){
@@ -80,6 +89,6 @@ try{
   if(!$existing){if((int)sql('SELECT COUNT(*) FROM members')->fetchColumn()>=10)problem('Alle 10 Teamplätze sind belegt. Bitte zuerst einen Zugriff entfernen.');sql('INSERT INTO members(email,name,role,password_hash,created_at) VALUES(?,?,?,NULL,?)',[$email,explode('@',$email)[0],'member',timestamp()]);}
   sql('DELETE FROM invitations WHERE email=?',[$email]);$token=secret();sql('INSERT INTO invitations(hash,email,expires_at) VALUES(?,?,?)',[hash('sha256',$token),$email,timestamp()+48*3600*1000]);db()->commit();respond(['token'=>$token]);
  }
- if($action==='removeMember'){owner($m);$email=field($v,'email',190,true);lock_team();sql('DELETE FROM invitations WHERE email IN (SELECT email FROM members WHERE email=? AND role<>?)',[$email,'owner']);sql('DELETE FROM members WHERE email=? AND role<>?',[$email,'owner']);db()->commit();respond(['ok'=>true]);}
+ if($action==='removeMember'){owner($m);$email=field($v,'email',190,true);lock_team();if($email===$m['email'])problem('Der Inhaberzugriff bleibt bestehen.',403);sql('DELETE FROM invitations WHERE email IN (SELECT email FROM members WHERE email=? AND role<>?)',[$email,'owner']);sql('DELETE FROM clip_favorites WHERE member_email=?',[$email]);sql('DELETE FROM saved_searches WHERE member_email=?',[$email]);sql('DELETE FROM members WHERE email=? AND role<>?',[$email,'owner']);db()->commit();respond(['ok'=>true]);}
  problem('Unbekannte Aktion.');
 }catch(Throwable $e){handle_error($e);}

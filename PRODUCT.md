@@ -23,3 +23,6 @@ Die ALL-INKL-Ausgabe in all-inkl/ verwendet PHP ab 8.2, MariaDB/MySQL und privat
 
 ## Recherche-Suche
 Tags ergänzen Sammlungen; Filter nach Tag, Quelldomain, Ersteller, Clip-Art und gespeichertem Zeitraum werden kombiniert. Treffer enthalten Textausschnitt und bei PDF-Lesetext die Seitenangabe. Spätere Textmarkierungen und Kommentare bleiben intern bis zu ausdrücklicher Freigabe.
+
+## Persönliche Recherche und Pflege
+Persönliche gespeicherte Suchen und Favoriten; Duplikatwarnung bei derselben Quellenadresse; Mehrfachauswahl für ergänzende Tags und Sammlungswechsel. Papierkorb erhält Originaldateien und widerruft eigene Clip-Leselinks. Wiederherstellung respektiert bestehende Sammlungsfreigaben. Angemeldete Mitglieder können Sammlungen als ZIP mit Texten, Notizen, Quellen und Original-PDFs exportieren.

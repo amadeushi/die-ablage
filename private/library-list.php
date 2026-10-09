@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
-function library_page(array $params): array {
+function library_page(array $params,string $email=''): array {
  $q=trim((string)($params['q']??''));if(mb_strlen($q)>300)problem('Bitte einen kürzeren Suchbegriff verwenden.');
  $view=(string)($params['view']??'all');$type=(string)($params['type']??'all');$page=max(0,min(100000,(int)($params['page']??0)));$size=40;
  $terms=search_terms($q);$score=[];$scoreArgs=[];
- $where=[];$args=[];
- if(!in_array($view,['all','shared'],true)){$where[]='c.collection_id=?';$args[]=$view;}
+ $where=[($view==='trash'?'EXISTS':'NOT EXISTS').' (SELECT 1 FROM clip_trash tr WHERE tr.clip_id=c.id)'];$args=[];
+ if($view==='favorites'){$where[]='EXISTS (SELECT 1 FROM clip_favorites f WHERE f.clip_id=c.id AND f.member_email=?)';$args[]=$email;}
+ if(!in_array($view,['all','shared','favorites','trash'],true)){$where[]='c.collection_id=?';$args[]=$view;}
  if($view==='shared')$where[]="EXISTS (SELECT 1 FROM shares s WHERE (s.kind='clip' AND s.target_id=c.id) OR (s.kind='collection' AND s.target_id=c.collection_id))";
  if($type!=='all'){if(!in_array($type,['article','page','link','pdf'],true))problem('Bitte die Clip-Art prüfen.');$where[]='c.type=?';$args[]=$type;}
  foreach(['positive','negative'] as $kind)foreach($terms[$kind] as $term){$where[]=($kind==='negative'?'NOT ':'').search_condition();$pattern=search_pattern($term);array_push($args,$pattern,$pattern,$pattern,$pattern,$pattern);if($kind==='positive'){foreach(['title'=>12,'note'=>4,'content'=>3,'url'=>1] as $field=>$weight){$score[]="CASE WHEN c.$field LIKE ? ESCAPE '!' THEN $weight ELSE 0 END";$scoreArgs[]=$pattern;}$score[]="CASE WHEN EXISTS (SELECT 1 FROM clip_tags t WHERE t.clip_id=c.id AND t.tag LIKE ? ESCAPE '!') THEN 8 ELSE 0 END";$scoreArgs[]=$pattern;}}
@@ -20,8 +21,8 @@ function library_page(array $params): array {
  $page=min($page,max(0,(int)ceil($total/$size)-1));
  $substring=db()->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?'SUBSTRING':'SUBSTR';
  $rank=$score?'('.implode('+',$score).')':'0';
- $items=sql('SELECT '.$rank.' AS relevance,c.id,c.title,c.url,c.type,'.$substring.'(c.content,1,220) AS summary,'.($q!==''?'c.content,c.note,':'').'c.collection_id,c.author,c.archive_key,c.created_at FROM clips c'.$filter.' ORDER BY relevance DESC,c.created_at DESC,c.id DESC LIMIT '.$size.' OFFSET '.($page*$size),array_merge($scoreArgs,$args))->fetchAll();
- $counts=[];foreach(sql('SELECT collection_id,COUNT(*) AS total FROM clips GROUP BY collection_id')->fetchAll() as $row)$counts[$row['collection_id']??'']=(int)$row['total'];
+ $items=sql('SELECT '.$rank.' AS relevance,(SELECT COUNT(*) FROM clip_favorites f WHERE f.clip_id=c.id AND f.member_email=?) AS favorite,(SELECT deleted_at FROM clip_trash tr WHERE tr.clip_id=c.id) AS deleted_at,c.id,c.title,c.url,c.type,'.$substring.'(c.content,1,220) AS summary,'.($q!==''?'c.content,c.note,':'').'c.collection_id,c.author,c.archive_key,c.created_at FROM clips c'.$filter.' ORDER BY relevance DESC,c.created_at DESC,c.id DESC LIMIT '.$size.' OFFSET '.($page*$size),array_merge($scoreArgs,[$email],$args))->fetchAll();
+ $counts=[];foreach(sql('SELECT collection_id,COUNT(*) AS total FROM clips c WHERE '.active_clip_condition().' GROUP BY collection_id')->fetchAll() as $row)$counts[$row['collection_id']??'']=(int)$row['total'];
   $clips=[];foreach($items as $item){$clip=public_clip($item);if($q!==''){$item['tags']=$clip['tags']??[];$clip['hit']=search_hit($item,$q);unset($clip['content'],$clip['note']);}$clips[]=$clip;}
- return ['clips'=>$clips,'totalResults'=>$total,'totalClips'=>(int)sql('SELECT COUNT(*) FROM clips')->fetchColumn(),'collectionCounts'=>$counts,'page'=>$page,'pageSize'=>$size,'searchTerms'=>$terms['positive']];
+ return ['clips'=>$clips,'totalResults'=>$total,'totalClips'=>(int)sql('SELECT COUNT(*) FROM clips c WHERE '.active_clip_condition())->fetchColumn(),'collectionCounts'=>$counts,'page'=>$page,'pageSize'=>$size,'searchTerms'=>$terms['positive']];
 }
