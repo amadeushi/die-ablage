@@ -26,3 +26,6 @@ Tags ergänzen Sammlungen; Filter nach Tag, Quelldomain, Ersteller, Clip-Art und
 
 ## Persönliche Recherche und Pflege
 Persönliche gespeicherte Suchen und Favoriten; Duplikatwarnung bei derselben Quellenadresse; Mehrfachauswahl für ergänzende Tags und Sammlungswechsel. Papierkorb erhält Originaldateien und widerruft eigene Clip-Leselinks. Wiederherstellung respektiert bestehende Sammlungsfreigaben. Angemeldete Mitglieder können Sammlungen als ZIP mit Texten, Notizen, Quellen und Original-PDFs exportieren.
+
+## Lesen und Markdown
+Neue Webclips erhalten semantische Artikelstruktur als Markdown; reine Textauswahl, alte Clips und PDF-Lesetext bleiben Klartext. Persönliche Schriftgröße und Georgia/Barlow werden gerätebezogen gespeichert und gelten auch für Leselinks. Notizen lassen sich visuell und als Markdown bearbeiten, mit einer sicheren formatierten Ausgabe in Bibliothek und Freigaben.

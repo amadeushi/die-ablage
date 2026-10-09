@@ -10,10 +10,15 @@
     "build": "vite build --config vite.config.ts"
   },
   "dependencies": {
+    "@tiptap/markdown": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
     "lucide-react": "1.31.0",
     "pdfjs-dist": "6.4.299",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.1",

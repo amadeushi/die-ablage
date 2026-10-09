@@ -26,7 +26,7 @@ function pdf_upload(array $m,array $v): array {
  try{
   if(file_put_contents($path,$bytes,LOCK_EX)===false)problem('Die PDF-Datei kann nicht gespeichert werden.',503);chmod($path,0600);
   if(file_put_contents($path.'.json',json_encode($meta,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),LOCK_EX)===false)problem('Die Dokumentangaben können nicht gespeichert werden.',503);chmod($path.'.json',0600);
-  db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,'pdf',pdf_index_prefix($meta).$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);db()->commit();
+  db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,'pdf',pdf_index_prefix($meta).$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);sql('UPDATE clips SET note_format=? WHERE id=?',[($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);db()->commit();
  }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if(is_file($path))unlink($path);if(is_file($path.'.json'))unlink($path.'.json');throw $e;}
  return ['id'=>$id];
 }

@@ -91,3 +91,12 @@ Löschen verschiebt Clips in den Papierkorb. Text, Tags, Notizen und Originaldat
 „Sammlung exportieren“ lädt für angemeldete Mitglieder ein ZIP mit Markdown-Texten, Notizen, Quellen, JSON-Metadaten und Original-PDFs. Gelöschte Clips und Leselinks werden nicht exportiert. Grenzen: 500 Clips und 100 MB; PHP ZipArchive erforderlich (ALL-INKL geprüft). Gespeicherte HTML-Seitenkopien sind nicht Teil des Exports.
 
 Bestehende Installation: `php private/migrate-library-tools.php` einmal vor Austausch des Codes ausführen (optional privates Verzeichnis als erstes Argument). Die idempotente Migration ergänzt ausschließlich `clip_trash`, `clip_favorites` und `saved_searches`. Auch `private/library-tools.php` gehört zum Update. Konfiguration und Originaldateien bleiben erhalten.
+
+## Artikelstruktur, Leseeinstellungen und Markdown-Notizen
+Die Erweiterung ab 1.3.0 erfasst semantische Überschriften, Absätze, Listen, Hervorhebungen und Zitate als Markdown. Markierte reine Textauswahl bleibt Klartext; Originalkopien und PDFs bleiben unverändert. Bestehende Clips werden nicht automatisch umformatiert. Beim Bearbeiten kann das Lesetext-Format für Webclips ausdrücklich auf Markdown umgestellt werden.
+
+„Lesedarstellung“ erlaubt 16–24 px und Georgia/Barlow in Bibliothek und geheimen Leselinks. Die Wahl bleibt im lokalen Browser gespeichert und verändert keine Inhalte oder Einstellungen anderer Leser.
+
+Notizen verwenden einen visuellen Tiptap-Editor mit Formatierungsleiste, Rückgängig/Wiederholen und umschaltbarem Markdown-Quelltext. Unterstützt werden Absätze, Überschriften, Fett/Kursiv, Listen, Zitate, Code und Links. Tabellen, Bilder, Aufgaben und HTML bleiben im Quelltext bearbeitbar, um sie beim visuellen Bearbeiten nicht zu verlieren. Markdown wird mit react-markdown/remark-gfm angezeigt, ohne HTML-Ausführung oder externe Bildanforderungen. Alte Klartextnotizen werden beim Bearbeiten maskiert; neue Notizen erhalten ausdrücklich das Format Markdown. Notizen bleiben Teil bestehender Freigaben und Exporte.
+
+Update: `php private/migrate-reading.php` vor dem App-Update ausführen (optional absolutes privates Verzeichnis als Argument). Ergänzt `content_format` und `note_format` mit dem Standard `text`; vorhandene Daten bleiben erhalten. Die Chrome-Erweiterung neu herunterladen, entpacken und über chrome://extensions neu laden, um strukturierte Artikel zu erfassen.

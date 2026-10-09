@@ -25,6 +25,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  tokens={kind:hashlib.sha256(kind.encode()).hexdigest() for kind in ['clip','collection','empty']}
  for kind,token in tokens.items():db.execute('INSERT INTO shares VALUES (?,?,?,?,?)',(kind,hashlib.sha256(token.encode()).hexdigest(),kind,'clip' if kind=='clip' else 'collection',1))
  db.executescript('CREATE TABLE clip_trash(clip_id TEXT PRIMARY KEY,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT,PRIMARY KEY(clip_id,member_email));CREATE TABLE saved_searches(id TEXT PRIMARY KEY,member_email TEXT,name TEXT,params TEXT,created_at INTEGER);')
+ db.executescript("ALTER TABLE clips ADD COLUMN content_format TEXT NOT NULL DEFAULT 'text';ALTER TABLE clips ADD COLUMN note_format TEXT NOT NULL DEFAULT 'text';")
  db.commit()
  server=subprocess.Popen(['php','-S',f'127.0.0.1:{port}','-t',str(root/'public'),str(root/'router.php')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  def request(path):
@@ -126,7 +127,12 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   dup=json.loads(opener.open(base+'/api/library?duplicates=1&url=https%3A%2F%2Fexample.com%2F%23section').read());assert len(dup['duplicates'])==2
   payload={'action':'clip','url':'https://example.com','title':'Weitere Kopie','type':'link','content':'','note':'','tags':[]}
   assert post(payload)[0]==409
-  status,copy_result=post({**payload,'allowDuplicate':True});assert status==200
+  status,copy_result=post({**payload,'allowDuplicate':True,'type':'article','content':'## Struktur\n\nEin Absatz.','contentFormat':'markdown','note':'**Wichtig**','noteFormat':'markdown'});assert status==200
+  structured=json.loads(opener.open(base+'/api/shared?id='+copy_result['id']).read());assert structured['content_format']=='markdown' and structured['note_format']=='markdown'
+  st,mdshare=post({'action':'share','id':copy_result['id'],'kind':'clip'});assert st==200
+  publicmd=json.loads(request('/api/share?token='+mdshare['token'])[1])['clips'][0];assert publicmd['content_format']=='markdown' and publicmd['note_format']=='markdown'
+  assert post({'action':'note','id':copy_result['id'],'note':'## Notiz\n\n- Ein Punkt','noteFormat':'markdown'})[0]==200
+  assert json.loads(opener.open(base+'/api/shared?id='+copy_result['id']).read())['note_format']=='markdown'
   assert post({'action':'bulk','ids':['clip','other'],'operation':'tags','tags':['Team']},reader,rc)[0]==403
   assert db.execute('SELECT COUNT(*) FROM clip_tags WHERE tag="Team"').fetchone()[0]==0
   assert post({'action':'bulk','ids':['clip','other'],'operation':'tags','tags':['Team']})[0]==200

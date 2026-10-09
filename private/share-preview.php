@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 function preview_escape(string $value): string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
-function preview_excerpt(string $content,string $title,int $limit=160): string {
+function preview_excerpt(string $content,string $title,int $limit=160,string $format='text'): string {
+ if($format==='markdown')$content=preg_replace('/\[([^\]]+)\]\([^)]*\)|(?:^|\n)\s*(?:#{1,6} |[-*>] |[0-9]+\. )|[*`_]/u','$1',strip_tags($content));
  $lines=preg_split('/\R/u',trim($content))?:[];
  if($lines&&mb_strtolower(trim($lines[0]))===mb_strtolower(trim($title)))array_shift($lines);
  $text=trim(preg_replace('/\s+/u',' ',implode(' ',$lines))??'');
@@ -13,7 +14,7 @@ function preview_excerpt(string $content,string $title,int $limit=160): string {
 }
 function share_preview(array $share,string $origin,string $token): array {
  $clips=$share['clips'];$first=$clips[0]??null;
- $excerpt=$first?preview_excerpt((string)($first['content']??''),(string)$first['title']):'';
+ $excerpt=$first?preview_excerpt((string)($first['content']??''),(string)$first['title'],160,(string)($first['content_format']??'text')):'';
  $description=$excerpt?:($first?'Zum Lesen geteilt: '.$first['title']:'Diese Sammlung ist noch leer. Neue Clips erscheinen, sobald sie hinzugefügt werden.');
  if(count($clips)>1)$description=count($clips).' Clips · '.$description;
  return ['title'=>(string)$share['title'],'description'=>$description,'url'=>rtrim($origin,'/').'/s/'.$token,'image'=>rtrim($origin,'/').'/share-preview.png','type'=>count($clips)===1?'article':'website'];
