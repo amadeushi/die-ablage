@@ -1,0 +1,12 @@
+import {useState} from 'react';
+export const activeShare=(s:any)=>s.expires_at==null||Number(s.expires_at)>Date.now();
+export const expiryLabel=(expiry:number|null)=>expiry==null?'Unbefristet':`Läuft ab am ${new Date(Number(expiry)).toLocaleString('de-DE',{dateStyle:'medium',timeStyle:'short'})}`;
+export function ExpiryPicker({value,date,onValue,onDate,disabled=false}:{value:string;date:string;onValue:(v:string)=>void;onDate:(v:string)=>void;disabled?:boolean}){
+ return <div className="expiry-picker"><label className="field">Gültigkeit<select disabled={disabled} value={value} onChange={e=>onValue(e.target.value)}><option value="1">1 Tag</option><option value="7">7 Tage</option><option value="30">30 Tage</option><option value="90">90 Tage</option><option value="custom">Eigener Zeitpunkt</option><option value="0">Unbefristet</option></select></label>{value==='custom'&&<label className="field">Gültig bis<input type="datetime-local" disabled={disabled} value={date} onChange={e=>onDate(e.target.value)}/><span>In deiner lokalen Zeitzone. Maximal ein Jahr.</span></label>}</div>;
+}
+export function expiryPayload(value:string,date:string){return {durationDays:value==='custom'?'custom':Number(value),...(value==='custom'?{expiresAt:new Date(date).getTime()}: {})};}
+export function validExpiry(value:string,date:string){const expiry=new Date(date).getTime();return value!=='custom'||Number.isFinite(expiry)&&expiry>Date.now()&&expiry<=Date.now()+366*86400000;}
+export function ShareLinkSettings({item,busy,update,revoke}:{item:any;busy:boolean;update:(v:any)=>Promise<any>;revoke:()=>Promise<any>}){
+ const [edit,setEdit]=useState(false),[value,setValue]=useState('7'),[date,setDate]=useState('');
+ return <div className="share-link-settings"><p><strong>{activeShare(item)?expiryLabel(item.expires_at):'Abgelaufen'}</strong><small>Erstellt am {new Date(Number(item.created_at)).toLocaleDateString('de-DE')}</small></p>{edit?<><ExpiryPicker value={value} date={date} onValue={setValue} onDate={setDate} disabled={busy}/><div className="expiry-actions"><button className="secondary" disabled={busy||!validExpiry(value,date)} onClick={async()=>{if(await update(expiryPayload(value,date)))setEdit(false);}}>Laufzeit speichern</button><button className="text-btn" disabled={busy} onClick={()=>setEdit(false)}>Abbrechen</button></div></>:<button className="text-btn" disabled={busy} onClick={()=>setEdit(true)}>Laufzeit ändern</button>}<button className="text-btn danger" disabled={busy} onClick={revoke}>Link deaktivieren</button></div>;
+}

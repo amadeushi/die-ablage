@@ -45,7 +45,7 @@ try{
  $m=member();
  if($method==='GET'){
   if(isset($_GET['duplicates']))respond(['duplicates'=>clip_duplicates(field($_GET,'url',10000))]);
-  $base=array_merge(library_options(),library_personal($m),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind FROM shares')->fetchAll()]);
+  $base=array_merge(library_options(),library_personal($m),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind,created_at,expires_at FROM shares')->fetchAll()]);
   if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET,$m['email'])));}
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
@@ -77,11 +77,15 @@ try{
  }
  if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT c.* FROM clips c WHERE id=? AND '.active_clip_condition(),[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);sql('UPDATE clips SET note=?,note_format=? WHERE id=?',[field($v,'note',20000),($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);respond(['ok'=>true]);}
  if($action==='delete')respond(clip_trash_change($m,$v,false));
- if($action==='share'||$action==='revoke'){
+ if(in_array($action,['share','revoke','shareExpiry','revokeShare'],true)){
   $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);if(!in_array($kind,['clip','collection'],true))problem('Bitte den Freigabetyp prüfen.');
+  if($action==='shareExpiry'||$action==='revokeShare'){
+   $shareId=field($v,'shareId',36,true);if(!sql('SELECT id FROM shares WHERE id=? AND target_id=? AND kind=?',[$shareId,$id,$kind])->fetch())problem('Dieser Leselink ist nicht verfügbar.',404);
+   if($action==='revokeShare')sql('DELETE FROM shares WHERE id=?',[$shareId]);else sql('UPDATE shares SET expires_at=? WHERE id=?',[share_expiry($v),$shareId]);respond(['ok'=>true]);
+  }
   if($action==='revoke'){sql('DELETE FROM shares WHERE target_id=? AND kind=?',[$id,$kind]);respond(['ok'=>true]);}
   $table=$kind==='clip'?'clips':'collections';if(!sql('SELECT id FROM '.$table.' c WHERE id=?'.($kind==='clip'?' AND '.active_clip_condition():''),[$id])->fetch())problem('Dieser Inhalt ist nicht verfügbar.',404);
-  $token=secret();sql('INSERT INTO shares(id,hash,target_id,kind,created_at) VALUES(?,?,?,?,?)',[uid(),hash('sha256',$token),$id,$kind,timestamp()]);respond(['token'=>$token]);
+  $expiry=share_expiry($v);$token=secret();sql('INSERT INTO shares(id,hash,target_id,kind,created_at,expires_at) VALUES(?,?,?,?,?,?)',[uid(),hash('sha256',$token),$id,$kind,timestamp(),$expiry]);respond(['token'=>$token,'expiresAt'=>$expiry]);
  }
  if($action==='member'){
   owner($m);$email=strtolower(trim(field($v,'email',190,true)));if(!filter_var($email,FILTER_VALIDATE_EMAIL))problem('Bitte eine gültige E-Mail-Adresse eingeben.');

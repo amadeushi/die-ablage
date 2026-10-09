@@ -100,3 +100,10 @@ Die Erweiterung ab 1.3.0 erfasst semantische Überschriften, Absätze, Listen, H
 Notizen verwenden einen visuellen Tiptap-Editor mit Formatierungsleiste, Rückgängig/Wiederholen und umschaltbarem Markdown-Quelltext. Unterstützt werden Absätze, Überschriften, Fett/Kursiv, Listen, Zitate, Code und Links. Tabellen, Bilder, Aufgaben und HTML bleiben im Quelltext bearbeitbar, um sie beim visuellen Bearbeiten nicht zu verlieren. Markdown wird mit react-markdown/remark-gfm angezeigt, ohne HTML-Ausführung oder externe Bildanforderungen. Alte Klartextnotizen werden beim Bearbeiten maskiert; neue Notizen erhalten ausdrücklich das Format Markdown. Notizen bleiben Teil bestehender Freigaben und Exporte.
 
 Update: `php private/migrate-reading.php` vor dem App-Update ausführen (optional absolutes privates Verzeichnis als Argument). Ergänzt `content_format` und `note_format` mit dem Standard `text`; vorhandene Daten bleiben erhalten. Die Chrome-Erweiterung neu herunterladen, entpacken und über chrome://extensions neu laden, um strukturierte Artikel zu erfassen.
+
+## Ablaufende Leselinks
+Neue Freigaben für Clips und Sammlungen sind mit 7 Tagen vorbelegt. Zur Auswahl stehen 1, 7, 30 und 90 Tage, ein eigener Zeitpunkt (lokale Zeitzone, maximal ein Jahr) und unbefristet. Jeder Link hat seine eigene Laufzeit; sie lässt sich nachträglich ändern, auch bei abgelaufenen Links. Bestehende Freigaben bleiben unbefristet. Einzelne oder alle Links können deaktiviert werden. Andere Sammlungsfreigaben gelten unabhängig.
+
+Der Server prüft den Ablauf bei jedem Zugriff auf Lesetext, Seitenkopie, Original-PDF und Messenger-Metadaten. Abgelaufene Links liefern HTTP 410 ohne Clipinhalte. Es ist kein Cronjob erforderlich. Bereits heruntergeladene Inhalte und Messenger-Caches können nicht zurückgerufen werden.
+
+Update: `php private/migrate-share-expiry.php` vor Austausch des Codes ausführen (optional privates Verzeichnis als erstes Argument). Die idempotente Migration ergänzt nur die nullable Spalte `shares.expires_at`; bestehende Links und Inhalte bleiben erhalten. Auch `private/share-expiry.php` gehört zum Update.

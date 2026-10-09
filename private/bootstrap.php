@@ -73,10 +73,10 @@ require_once __DIR__.'/pdf-store.php';
 require_once __DIR__.'/tags.php';
 require_once __DIR__.'/search.php';
 require_once __DIR__.'/library-tools.php';
+require_once __DIR__.'/share-expiry.php';
 function public_clip(array $c): array { if(array_key_exists('favorite',$c))$c['favorite']=(bool)$c['favorite'];if(array_key_exists('deleted_at',$c))$c['deleted_at']=$c['deleted_at']?(int)$c['deleted_at']:null; $c['tags']=clip_tags($c['id']); if(($c['type']??'')==='pdf'){ $c['pdf']=pdf_metadata($c['archive_key']??'');$prefix=pdf_index_prefix($c['pdf']);if(isset($c['summary']))$c['summary']=($c['pdf']['filename']??'PDF-Dokument').' · '.($c['pdf']['pages']??'?').' Seiten';foreach(['content','summary'] as $field)if(isset($c[$field])&&str_starts_with($c[$field],$prefix))$c[$field]=substr($c[$field],strlen($prefix)); } if(($c['content_format']??'text')==='markdown'&&isset($c['summary']))$c['summary']=preg_replace('/(?:^|\n)\s*(?:#{1,6} |[-*>] |[0-9]+\. )|[*`_]/u','',$c['summary']);$c['created_at']=(int)$c['created_at'];$c['archive_key']=$c['archive_key']?'stored':null;return $c; }
 function shared_data(string $token): array {
- if(!preg_match('/^[a-f0-9]{64}$/D',$token))problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
- $s=sql('SELECT target_id,kind FROM shares WHERE hash=?',[hash('sha256',$token)])->fetch();if(!$s)problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
+ $s=share_by_token($token);
  if($s['kind']==='clip'){$clips=sql('SELECT * FROM clips WHERE id=? AND NOT EXISTS (SELECT 1 FROM clip_trash tr WHERE tr.clip_id=clips.id)',[$s['target_id']])->fetchAll();$title=$clips[0]['title']??null;}
  else{$col=sql('SELECT name FROM collections WHERE id=?',[$s['target_id']])->fetch();$title=$col['name']??null;$clips=sql('SELECT * FROM clips WHERE collection_id=? AND NOT EXISTS (SELECT 1 FROM clip_trash tr WHERE tr.clip_id=clips.id) ORDER BY created_at DESC',[$s['target_id']])->fetchAll();}
  if($title===null)problem('Der geteilte Inhalt ist nicht mehr verfügbar.',404);return ['title'=>$title,'clips'=>$clips];

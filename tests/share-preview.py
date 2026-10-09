@@ -7,7 +7,7 @@ import urllib.request, urllib.error
 source=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  root=Path(tmp); (root/'private').mkdir(); (root/'public').mkdir()
- for name in ['library-tools.php','bootstrap.php','search.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
+ for name in ['share-expiry.php','library-tools.php','bootstrap.php','search.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
  for name in ['index.html','api.php','share.php']:shutil.copyfile(source/'public'/name,root/'public'/name)
  shutil.copyfile(source/'router.php',root/'router.php')
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -23,9 +23,10 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  db.execute('INSERT INTO clips VALUES (?,?,?,?,?,?,?,?,?,?)',('clip',title,'https://example.com','page',title+'\n\n'+excerpt,'Private Testnotiz','collection','private@example.test',key,1))
  db.execute('INSERT INTO clips VALUES (?,?,?,?,?,?,?,?,?,?)',('other','Nicht freigegeben','https://example.com','article','UNSHARED_SECRET','','other','private@example.test',None,2))
  tokens={kind:hashlib.sha256(kind.encode()).hexdigest() for kind in ['clip','collection','empty']}
- for kind,token in tokens.items():db.execute('INSERT INTO shares VALUES (?,?,?,?,?)',(kind,hashlib.sha256(token.encode()).hexdigest(),kind,'clip' if kind=='clip' else 'collection',1))
+ for kind,token in tokens.items():db.execute('INSERT INTO shares(id,hash,target_id,kind,created_at) VALUES (?,?,?,?,?)',(kind,hashlib.sha256(token.encode()).hexdigest(),kind,'clip' if kind=='clip' else 'collection',1))
  db.executescript('CREATE TABLE clip_trash(clip_id TEXT PRIMARY KEY,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT,PRIMARY KEY(clip_id,member_email));CREATE TABLE saved_searches(id TEXT PRIMARY KEY,member_email TEXT,name TEXT,params TEXT,created_at INTEGER);')
  db.executescript("ALTER TABLE clips ADD COLUMN content_format TEXT NOT NULL DEFAULT 'text';ALTER TABLE clips ADD COLUMN note_format TEXT NOT NULL DEFAULT 'text';")
+ db.execute('ALTER TABLE shares ADD COLUMN expires_at INTEGER')
  db.commit()
  server=subprocess.Popen(['php','-S',f'127.0.0.1:{port}','-t',str(root/'public'),str(root/'router.php')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  def request(path):
@@ -45,6 +46,29 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   auth=json.loads(opener.open(base+'/api/auth').read())
   login=urllib.request.Request(base+'/api/auth',data=json.dumps({'action':'login','email':'test-owner@example.test','password':'test-only-password'}).encode(),headers={'Origin':base,'X-CSRF-Token':auth['csrf'],'Content-Type':'application/json'})
   assert opener.open(login).status==200
+  def mutate(payload):
+   csrf=json.loads(opener.open(base+'/api/library?list=1').read())['csrf']
+   req=urllib.request.Request(base+'/api/library',data=json.dumps(payload).encode(),headers={'Origin':base,'X-CSRF-Token':csrf,'Content-Type':'application/json'})
+   try:r=opener.open(req)
+   except urllib.error.HTTPError as e:r=e
+   return r.status,json.loads(r.read())
+  status,created=mutate({'action':'share','id':'clip','kind':'clip','durationDays':7})
+  assert status==200 and abs(created['expiresAt']-int(time.time()*1000)-7*86400000)<3000
+  assert request('/api/share?token='+created['token'])[0]==200
+  assert mutate({'action':'share','id':'clip','kind':'clip','durationDays':-1})[0]==400
+  assert mutate({'action':'share','id':'clip','kind':'clip','durationDays':'custom','expiresAt':1})[0]==400
+  new_id=db.execute('SELECT id FROM shares WHERE hash=?',(hashlib.sha256(created['token'].encode()).hexdigest(),)).fetchone()[0]
+  assert mutate({'action':'shareExpiry','id':'clip','kind':'collection','shareId':new_id,'durationDays':30})[0]==404
+  assert mutate({'action':'shareExpiry','id':'clip','kind':'clip','shareId':new_id,'durationDays':0})[0]==200
+  assert db.execute('SELECT expires_at FROM shares WHERE id=?',(new_id,)).fetchone()[0] is None
+  db.execute('UPDATE shares SET expires_at=1 WHERE id=?',(new_id,));db.commit()
+  for path in ['/api/share?token=','/api/shared?id=clip&archive=1&token=','/api/shared?id=clip&pdf=1&token=','/s/']:
+   code,body,_=request(path+created['token']);assert code==410 and title not in body and excerpt not in body
+  assert mutate({'action':'shareExpiry','id':'clip','kind':'clip','shareId':new_id,'durationDays':1})[0]==200
+  assert request('/api/share?token='+created['token'])[0]==200
+  assert mutate({'action':'revokeShare','id':'clip','kind':'clip','shareId':new_id})[0]==200
+  assert request('/api/share?token='+created['token'])[0]==404
+
   listing=json.loads(opener.open(base+'/api/library?list=1').read())
   assert listing['totalClips']==2 and listing['pageSize']==40 and len(listing['clips'])==2
   assert all('content' not in c and 'note' not in c for c in listing['clips'])
@@ -148,7 +172,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   assert request('/api/share?token='+new_share['token'])[0]==404
   assert any(c['id']=='clip' for c in json.loads(request('/api/share?token='+tokens['collection'])[1])['clips'])
   # Restore previous share token only in this isolated fixture for existing preview tests.
-  db.execute('INSERT INTO shares VALUES (?,?,?,?,?)',('clip',hashlib.sha256(tokens['clip'].encode()).hexdigest(),'clip','clip',1));db.commit()
+  db.execute('INSERT INTO shares(id,hash,target_id,kind,created_at) VALUES (?,?,?,?,?)',('clip',hashlib.sha256(tokens['clip'].encode()).hexdigest(),'clip','clip',1));db.commit()
   assert post({'action':'restore','id':pdf_id})[0]==200
   assert post({'action':'bulk','ids':[pdf_id],'operation':'collection','collectionId':'collection'})[0]==200
   export=urllib.request.Request(base+'/api/library',data=json.dumps({'action':'export','id':'collection'}).encode(),headers={'Origin':base,'X-CSRF-Token':csrf,'Content-Type':'application/json'})

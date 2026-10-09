@@ -10,10 +10,11 @@ require dirname(__DIR__).'/private/tags.php';
 require dirname(__DIR__).'/private/search.php';
 require dirname(__DIR__).'/private/library-tools.php';
 require dirname(__DIR__).'/private/library-list.php';
+function timestamp():int{return 1700000000000;}
 function check(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
-db()->exec('CREATE TABLE clip_trash(clip_id TEXT,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT);CREATE TABLE clip_tags(clip_id TEXT,tag TEXT);CREATE TABLE clips(id TEXT,title TEXT,url TEXT,type TEXT,content TEXT,note TEXT,collection_id TEXT,author TEXT,archive_key TEXT,created_at INTEGER);CREATE TABLE shares(target_id TEXT,kind TEXT);');
+db()->exec('CREATE TABLE clip_trash(clip_id TEXT,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT);CREATE TABLE clip_tags(clip_id TEXT,tag TEXT);CREATE TABLE clips(id TEXT,title TEXT,url TEXT,type TEXT,content TEXT,note TEXT,collection_id TEXT,author TEXT,archive_key TEXT,created_at INTEGER);CREATE TABLE shares(target_id TEXT,kind TEXT,expires_at INTEGER);');
 for($i=0;$i<95;$i++)sql('INSERT INTO clips VALUES(?,?,?,?,?,?,?,?,?,?)',[(string)$i,'Clip '.$i,'https://example.com/'.$i,$i%2?'article':'page',str_repeat('Langer Testinhalt ',1000).($i===5?' SUCHWORT':'') ,$i===6?'Notizfund 100% _ !':'',$i<50?'collection-a':'collection-b','test@example.test',$i===5?str_repeat('a',32).'.html':null,$i]);
-sql('INSERT INTO shares VALUES(?,?)',['5','clip']);sql('INSERT INTO shares VALUES(?,?)',['collection-b','collection']);
+sql('INSERT INTO shares(target_id,kind) VALUES(?,?)',['5','clip']);sql('INSERT INTO shares(target_id,kind) VALUES(?,?)',['collection-b','collection']);
 db()->exec("ALTER TABLE clips ADD COLUMN content_format TEXT NOT NULL DEFAULT 'text';ALTER TABLE clips ADD COLUMN note_format TEXT NOT NULL DEFAULT 'text';");
 $a=library_page([]);check(count($a['clips'])===40&&$a['totalResults']===95&&$a['totalClips']===95,'Pagination/count');check(!array_key_exists('content',$a['clips'][0])&&!array_key_exists('note',$a['clips'][0]),'No full text');check(mb_strlen($a['clips'][0]['summary'])<=220,'Bounded summary');
 $b=library_page(['page'=>1]);check($a['clips'][39]['id']!==$b['clips'][0]['id']&&count($b['clips'])===40,'Distinct second page');check(count(library_page(['page'=>2])['clips'])===15,'Last page');check(library_page(['page'=>999])['page']===2,'Clamp page');
@@ -43,3 +44,5 @@ try{library_page(['q'=>'"unfinished']);throw new RuntimeException('Unfinished ph
 echo "PASS: 95 clips, bounded summaries, 40-item pagination, stable pages, full-text/note search, literal wildcards, collection/type/share filters and counts.\n";
 
 sql('INSERT INTO clip_favorites VALUES(?,?)',['5','me']);check(library_page(['view'=>'favorites'],'me')['totalResults']===1,'Personal favorite');check(library_page(['view'=>'favorites'],'other')['totalResults']===0,'Favorites private');sql('INSERT INTO clip_trash VALUES(?,?,?)',['5',100,'me']);check(library_page(['q'=>'SUCHWORT'])['totalResults']===0,'Trash hidden from search');check(library_page(['view'=>'trash'])['totalResults']===1,'Trash view');check(library_page(['view'=>'favorites'],'me')['totalResults']===0,'Trashed favorite hidden');
+
+sql('UPDATE shares SET expires_at=?',[timestamp()-1]);check(library_page(['view'=>'shared'])['totalResults']===0,'Expired links excluded from shared view');

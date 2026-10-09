@@ -18,7 +18,7 @@ try {
 } catch(Throwable $e) {
  $status=$e instanceof AppError&&$e->getCode()>=400&&$e->getCode()<=599?(int)$e->getCode():503;
  http_response_code($status);
- $pageTitle=$status===404?'Leselink nicht verfügbar · Die ABLAGE':'Die ABLAGE ist vorübergehend nicht erreichbar';
+ $pageTitle=$status===410?'Leselink abgelaufen · Die ABLAGE':($status===404?'Leselink nicht verfügbar · Die ABLAGE':'Die ABLAGE ist vorübergehend nicht erreichbar');
  if($status===503)error_log('Die ABLAGE Vorschau: '.$e->getMessage());
 }
 $html=file_get_contents(__DIR__.'/index.html');

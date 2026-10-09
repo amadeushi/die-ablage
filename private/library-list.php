@@ -7,7 +7,7 @@ function library_page(array $params,string $email=''): array {
  $where=[($view==='trash'?'EXISTS':'NOT EXISTS').' (SELECT 1 FROM clip_trash tr WHERE tr.clip_id=c.id)'];$args=[];
  if($view==='favorites'){$where[]='EXISTS (SELECT 1 FROM clip_favorites f WHERE f.clip_id=c.id AND f.member_email=?)';$args[]=$email;}
  if(!in_array($view,['all','shared','favorites','trash'],true)){$where[]='c.collection_id=?';$args[]=$view;}
- if($view==='shared')$where[]="EXISTS (SELECT 1 FROM shares s WHERE (s.kind='clip' AND s.target_id=c.id) OR (s.kind='collection' AND s.target_id=c.collection_id))";
+ if($view==='shared')$where[]="EXISTS (SELECT 1 FROM shares s WHERE ((s.kind='clip' AND s.target_id=c.id) OR (s.kind='collection' AND s.target_id=c.collection_id)) AND (s.expires_at IS NULL OR s.expires_at>".timestamp()."))";
  if($type!=='all'){if(!in_array($type,['article','page','link','pdf'],true))problem('Bitte die Clip-Art prüfen.');$where[]='c.type=?';$args[]=$type;}
  foreach(['positive','negative'] as $kind)foreach($terms[$kind] as $term){$where[]=($kind==='negative'?'NOT ':'').search_condition();$pattern=search_pattern($term);array_push($args,$pattern,$pattern,$pattern,$pattern,$pattern);if($kind==='positive'){foreach(['title'=>12,'note'=>4,'content'=>3,'url'=>1] as $field=>$weight){$score[]="CASE WHEN c.$field LIKE ? ESCAPE '!' THEN $weight ELSE 0 END";$scoreArgs[]=$pattern;}$score[]="CASE WHEN EXISTS (SELECT 1 FROM clip_tags t WHERE t.clip_id=c.id AND t.tag LIKE ? ESCAPE '!') THEN 8 ELSE 0 END";$scoreArgs[]=$pattern;}}
  $tag=trim((string)($params['tag']??''));if(mb_strlen($tag)>80)problem('Bitte den Tag prüfen.');if($tag!==''){$where[]='EXISTS (SELECT 1 FROM clip_tags t WHERE t.clip_id=c.id AND t.tag=?)';$args[]=$tag;}
