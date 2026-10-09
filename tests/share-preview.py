@@ -200,6 +200,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
   status,body,headers=request('/s/'+tokens['clip']);assert status==200
   assert html.escape(title,quote=True) in body and '$1' in body
   assert '<script>alert(1)</script>' not in body
+  assert 'example.com' in html.unescape(re.search(r'property="og:title" content="([^"]+)"',body).group(1))
   assert 'property="og:title"' in body and 'property="og:image"' in body and 'name="twitter:card"' in body
   assert base+'/share-preview.png' in body and base+'/s/'+tokens['clip'] in body
   assert 'UNSHARED_SECRET' not in body and 'private@example.test' not in body and 'Private Testnotiz' not in body
