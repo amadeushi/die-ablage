@@ -74,6 +74,7 @@ require_once __DIR__.'/tags.php';
 require_once __DIR__.'/search.php';
 require_once __DIR__.'/library-tools.php';
 require_once __DIR__.'/share-expiry.php';
+require_once __DIR__.'/reader-marks.php';
 function public_clip(array $c): array { if(array_key_exists('favorite',$c))$c['favorite']=(bool)$c['favorite'];if(array_key_exists('deleted_at',$c))$c['deleted_at']=$c['deleted_at']?(int)$c['deleted_at']:null; $c['tags']=clip_tags($c['id']); if(($c['type']??'')==='pdf'){ $c['pdf']=pdf_metadata($c['archive_key']??'');$prefix=pdf_index_prefix($c['pdf']);if(isset($c['summary']))$c['summary']=($c['pdf']['filename']??'PDF-Dokument').' · '.($c['pdf']['pages']??'?').' Seiten';foreach(['content','summary'] as $field)if(isset($c[$field])&&str_starts_with($c[$field],$prefix))$c[$field]=substr($c[$field],strlen($prefix)); } if(($c['content_format']??'text')==='markdown'&&isset($c['summary']))$c['summary']=preg_replace('/(?:^|\n)\s*(?:#{1,6} |[-*>] |[0-9]+\. )|[*`_]/u','',$c['summary']);$c['created_at']=(int)$c['created_at'];$c['archive_key']=$c['archive_key']?'stored':null;return $c; }
 function shared_data(string $token): array {
  $s=share_by_token($token);

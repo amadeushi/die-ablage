@@ -44,12 +44,14 @@ try{
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);
  $m=member();
  if($method==='GET'){
+  if(isset($_GET['marks']))respond(['marks'=>reader_marks_list($m,field($_GET,'id',36,true))]);
   if(isset($_GET['duplicates']))respond(['duplicates'=>clip_duplicates(field($_GET,'url',10000))]);
   $base=array_merge(library_options(),library_personal($m),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind,created_at,expires_at FROM shares')->fetchAll()]);
   if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET,$m['email'])));}
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
  $v=input();$action=$v['action']??'';
+ if(in_array($action,['addMark','removeMark'],true))respond(reader_marks_change($m,$v));
  if($action==='pdf'){duplicate_gate($v);respond(pdf_upload($m,$v));}
  if($action==='export')collection_export($v);
  if($action==='saveSearch')respond(library_search_save($m,$v));

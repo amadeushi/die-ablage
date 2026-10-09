@@ -107,3 +107,12 @@ Neue Freigaben für Clips und Sammlungen sind mit 7 Tagen vorbelegt. Zur Auswahl
 Der Server prüft den Ablauf bei jedem Zugriff auf Lesetext, Seitenkopie, Original-PDF und Messenger-Metadaten. Abgelaufene Links liefern HTTP 410 ohne Clipinhalte. Es ist kein Cronjob erforderlich. Bereits heruntergeladene Inhalte und Messenger-Caches können nicht zurückgerufen werden.
 
 Update: `php private/migrate-share-expiry.php` vor Austausch des Codes ausführen (optional privates Verzeichnis als erstes Argument). Die idempotente Migration ergänzt nur die nullable Spalte `shares.expires_at`; bestehende Links und Inhalte bleiben erhalten. Auch `private/share-expiry.php` gehört zum Update.
+
+## Persönlicher Textmarker
+In Lesetexten und gespeicherten Notizen: Text auswählen und „Markieren“ drücken. Markierungen sind gelb und lassen sich durch Antippen oder über „Deine Markierungen“ entfernen. Pro Passage maximal 2.000 Zeichen, maximal 100 Markierungen pro Clip im Konto bzw. pro Textbereich lokal. PDFs werden noch nicht unterstützt.
+
+Angemeldete Mitglieder speichern Markierungen ausschließlich in ihrem eigenen Konto; sie werden nicht über Leselinks oder Exporte geteilt. Öffentliche Leser speichern ihre Markierungen ohne Anmeldung im lokalen Browser. Browserdaten löschen entfernt diese lokalen Markierungen. Neue Leselinks für denselben Clip auf derselben Domain können die gleichen lokalen Markierungen nutzen.
+
+Passage und Kontext werden gespeichert. Eindeutige Passagen werden nach Textänderungen wiedergefunden. Mehrdeutige oder entfernte Stellen werden nicht hervorgehoben; die Markierungsliste zeigt einen Hinweis. Originaltexte und Originaldateien bleiben unverändert.
+
+Update: `php private/migrate-reader-marks.php` vor Austausch des App-Codes ausführen (optional privates Verzeichnis als Argument). Erstellt ausschließlich `reader_marks`. Auch `private/reader-marks.php` gehört zum Update.

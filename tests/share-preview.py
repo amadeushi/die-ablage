@@ -7,7 +7,7 @@ import urllib.request, urllib.error
 source=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  root=Path(tmp); (root/'private').mkdir(); (root/'public').mkdir()
- for name in ['share-expiry.php','library-tools.php','bootstrap.php','search.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
+ for name in ['reader-marks.php','share-expiry.php','library-tools.php','bootstrap.php','search.php','tags.php','pdf-store.php','clip-edit.php','share-preview.php','library-list.php']:shutil.copyfile(source/'private'/name,root/'private'/name)
  for name in ['index.html','api.php','share.php']:shutil.copyfile(source/'public'/name,root/'public'/name)
  shutil.copyfile(source/'router.php',root/'router.php')
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -26,6 +26,7 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
  for kind,token in tokens.items():db.execute('INSERT INTO shares(id,hash,target_id,kind,created_at) VALUES (?,?,?,?,?)',(kind,hashlib.sha256(token.encode()).hexdigest(),kind,'clip' if kind=='clip' else 'collection',1))
  db.executescript('CREATE TABLE clip_trash(clip_id TEXT PRIMARY KEY,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT,PRIMARY KEY(clip_id,member_email));CREATE TABLE saved_searches(id TEXT PRIMARY KEY,member_email TEXT,name TEXT,params TEXT,created_at INTEGER);')
  db.executescript("ALTER TABLE clips ADD COLUMN content_format TEXT NOT NULL DEFAULT 'text';ALTER TABLE clips ADD COLUMN note_format TEXT NOT NULL DEFAULT 'text';")
+ db.execute('CREATE TABLE reader_marks(id TEXT PRIMARY KEY,clip_id TEXT,member_email TEXT,section TEXT,quote_text TEXT,prefix_text TEXT,suffix_text TEXT,created_at INTEGER)')
  db.execute('ALTER TABLE shares ADD COLUMN expires_at INTEGER')
  db.commit()
  server=subprocess.Popen(['php','-S',f'127.0.0.1:{port}','-t',str(root/'public'),str(root/'router.php')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -52,6 +53,19 @@ with tempfile.TemporaryDirectory(prefix='ablage-preview-') as tmp:
    try:r=opener.open(req)
    except urllib.error.HTTPError as e:r=e
    return r.status,json.loads(r.read())
+  status,mark=mutate({'action':'addMark','id':'clip','section':'content','quote':'Testmarkierung','prefix':'vorher ','suffix':' danach'})
+  assert status==200
+  mark_id=mark['mark']['id']
+  assert request('/api/library?marks=1&id=clip')[0]==401
+  assert len(json.loads(opener.open(base+'/api/library?marks=1&id=clip').read())['marks'])==1
+  assert 'Testmarkierung' not in request('/api/share?token='+tokens['clip'])[1]
+  assert mutate({'action':'addMark','id':'clip','section':'invalid','quote':'Text'})[0]==400
+  assert mutate({'action':'addMark','id':'clip','section':'note','quote':'x'*2001})[0]==400
+  db.execute('UPDATE reader_marks SET member_email=? WHERE id=?',('another@example.test',mark_id));db.commit()
+  assert json.loads(opener.open(base+'/api/library?marks=1&id=clip').read())['marks']==[]
+  assert mutate({'action':'removeMark','id':'clip','markId':mark_id})[0]==200
+  assert db.execute('SELECT COUNT(*) FROM reader_marks WHERE id=?',(mark_id,)).fetchone()[0]==1
+  db.execute('DELETE FROM reader_marks');db.commit()
   status,created=mutate({'action':'share','id':'clip','kind':'clip','durationDays':7})
   assert status==200 and abs(created['expiresAt']-int(time.time()*1000)-7*86400000)<3000
   assert request('/api/share?token='+created['token'])[0]==200
