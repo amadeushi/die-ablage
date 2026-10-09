@@ -1,0 +1,27 @@
+const {readFileSync}=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const source=name=>readFileSync(path.join(__dirname,'../SafariExtension/Resources',name),'utf8');
+(async()=>{
+ let listener,nativeCalls=0;
+ const api={runtime:{onMessage:{addListener(fn){listener=fn;}},sendNativeMessage:async(name,message)=>{nativeCalls++;assert.equal(name,'de.partei.hildesheim.ablage');assert.equal(message.action,'queueCapture');return {ok:true,launchURL:'dieablage://capture/test'};}}};
+ vm.runInNewContext(source('background.js'),{browser:api});
+ let response;
+ listener({action:'ablage-region-capture',clip:{}},{},r=>response=r);
+ assert.equal(response.ok,false);assert.equal(nativeCalls,0);
+ assert.equal(listener({action:'unrelated'},{tab:{id:1}},()=>{}),undefined);
+ await new Promise(resolve=>listener({action:'ablage-region-capture',clip:{title:'Test'}},{tab:{id:1}},r=>{response=r;resolve();}));
+ assert.equal(response.launchURL,'dieablage://capture/test');assert.equal(nativeCalls,1);
+ api.runtime.sendNativeMessage=async()=>{throw Error('private detail');};
+ await new Promise(resolve=>listener({action:'ablage-region-capture',clip:{}},{tab:{id:1}},r=>{response=r;resolve();}));
+ assert.equal(response.ok,false);assert.ok(!response.error.includes('private detail'));
+ const els={capture:{},status:{},open:{},type:{value:'article'}};let execution=0;
+ const popupAPI={tabs:{query:async()=>[{id:1,url:'https://example.org'}]},scripting:{executeScript:async()=>{execution++;return [{result:true}];}},runtime:{sendNativeMessage:async()=>{throw Error('must not transfer login');}}};
+ vm.runInNewContext(source('popup.js'),{browser:popupAPI,document:{getElementById:id=>els[id]},window:{close(){}}});
+ await els.capture.onclick();assert.match(els.status.textContent,/anmelden/);assert.equal(execution,1);assert.equal(els.capture.disabled,false);assert.equal(els.open.hidden,true);
+ execution=0;popupAPI.scripting.executeScript=async options=>{execution++;return [{result: options.files?null:options.args?{title:'Test',content:'Text'}:false}];};
+ popupAPI.runtime.sendNativeMessage=async()=>({ok:true,launchURL:'dieablage://capture/123'});
+ await els.capture.onclick();assert.equal(execution,3);assert.equal(els.open.href,'dieablage://capture/123');assert.equal(els.open.hidden,false);
+ console.log('Safari bridge tests passed: sender guard, native handoff, errors, login gate, article handoff.');
+})();
