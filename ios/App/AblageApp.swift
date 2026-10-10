@@ -20,6 +20,10 @@ import WebKit
                                 .accessibilityLabel("Neu laden")
                         }
                         ToolbarItem(placement: .topBarTrailing) {
+                            Button { model.loadDrafts() } label: { Image(systemName: "tray.full") }
+                                .accessibilityLabel("Ungespeicherte Entwürfe")
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
                             Button { model.showHelp = true } label: { Image(systemName: "questionmark.circle") }
                                 .accessibilityLabel("Clipping-Hilfe")
                         }
@@ -42,6 +46,20 @@ import WebKit
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { model.showHelp = false } } }
                 }
             }
+            .sheet(isPresented: $model.showDrafts) {
+                NavigationStack {
+                    List {
+                        if model.pending.isEmpty { Text("Keine ungespeicherten Entwürfe. Neue Auswahlen übergibst du aus Safari.") }
+                        ForEach(model.pending) { draft in
+                            Button { model.showDrafts = false; model.receive(URL(string: "dieablage://capture/" + draft.id)!) } label: {
+                                VStack(alignment: .leading, spacing: 4) { Text(draft.title); Text(draft.source).font(.caption).foregroundStyle(.secondary) }
+                            }
+                        }
+                        Text("Entwürfe bleiben bis zu 24 Stunden auf diesem Gerät verfügbar. Nach dem Speichern oder Verwerfen werden sie entfernt.").font(.footnote)
+                    }.navigationTitle("Entwürfe")
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { model.showDrafts = false } } }
+                }
+            }
             .alert("Clip-Übergabe", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
                 Button("OK", role: .cancel) { model.error = nil }
             } message: { Text(model.error ?? "") }
@@ -52,6 +70,9 @@ import WebKit
 @MainActor final class LibraryModel: ObservableObject {
     let webView: WKWebView
     @Published var showHelp = false
+    @Published var showDrafts = false
+    @Published var pending: [PendingCapture] = []
+    func loadDrafts() { do { pending = try CaptureStore.pending(); showDrafts = true } catch { self.error = "Entwürfe konnten nicht geladen werden. Prüfe die App-Gruppen-Einrichtung." } }
     @Published var error: String?
     var captureID: String?
     init() {
@@ -63,7 +84,7 @@ import WebKit
     func receive(_ url: URL) {
         guard url.scheme == "dieablage", url.host == "capture", let id = url.pathComponents.last, UUID(uuidString: id) != nil else { return }
         do { _ = try CaptureStore.load(id); captureID = id; webView.load(URLRequest(url: AblageConfig.origin)) }
-        catch { self.error = "Die Auswahl ist nicht mehr verfügbar. Bitte innerhalb von zehn Minuten aus Safari übernehmen." }
+        catch { self.error = "Die Auswahl ist nicht mehr verfügbar. Bitte innerhalb von 24 Stunden aus Safari übernehmen." }
     }
 }
 struct LibraryBrowser: UIViewRepresentable {
@@ -96,15 +117,16 @@ struct LibraryBrowser: UIViewRepresentable {
                 let json = try JSONSerialization.data(withJSONObject: ["channel": "lesewerk-capture", "id": id, "clip": clip])
                 guard let payload = String(data: json, encoding: .utf8) else { return }
                 let script = """
-                (()=>{const payload=\(payload);let tries=0;const send=()=>window.postMessage(payload,location.origin);const timer=setInterval(()=>{if(++tries>600)clearInterval(timer);else send();},1000);window.addEventListener('message',e=>{if(e.source!==window||e.origin!==location.origin)return;if(e.data?.channel==='lesewerk-received'&&e.data.id===payload.id){clearInterval(timer);window.webkit.messageHandlers.captureAck.postMessage(payload.id);}if(e.data?.channel==='lesewerk-ready')send();});send();})();
+                (()=>{const payload=\(payload);let tries=0;const send=()=>window.postMessage(payload,location.origin);const timer=setInterval(()=>{if(++tries>600)clearInterval(timer);else send();},1000);window.addEventListener('message',e=>{if(e.source!==window||e.origin!==location.origin)return;if(e.data?.id===payload.id){if(e.data.channel==='lesewerk-received')clearInterval(timer);if(['lesewerk-saved','lesewerk-discarded'].includes(e.data.channel)){clearInterval(timer);window.webkit.messageHandlers.captureAck.postMessage({id:payload.id,action:'finish'});}if(e.data.channel==='lesewerk-draft')window.webkit.messageHandlers.captureAck.postMessage({id:payload.id,action:'update',clip:e.data.clip});}if(e.data?.channel==='lesewerk-ready')send();});send();})();
                 """
                 web.evaluateJavaScript(script)
             } catch { model.error = "Die Auswahl ist abgelaufen. Bitte erneut clippen." }
         }
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == AblageConfig.origin.host,
-                  let id = message.body as? String, id == model.captureID else { return }
-            CaptureStore.remove(id); model.captureID = nil
+                  let body = message.body as? [String: Any], let id = body["id"] as? String, id == model.captureID else { return }
+            if body["action"] as? String == "finish" { CaptureStore.remove(id); model.captureID = nil }
+            else if body["action"] as? String == "update", let clip = body["clip"] as? [String: Any] { try? CaptureStore.update(id, clip: clip) }
         }
         func webView(_ web: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             if (error as NSError).code != NSURLErrorCancelled { model.error = "Die Bibliothek ist nicht erreichbar. Prüfe die Verbindung und tippe auf Neu laden." }

@@ -8,7 +8,7 @@ Dieses Projekt enthält eine SwiftUI-App mit eingebetteter bestehender Ablage un
 - Safari: Absätze, Überschriften, Bilder und Tabellen durch Antippen auswählen; Auswahl entfernen durch erneutes Antippen; Vorschau vor Übergabe.
 - Alternativ Artikel, vorhandene Textauswahl, ganze Seite oder Link erfassen.
 - Auf loginpflichtigen Quellen zuerst in Safari anmelden. Die Erweiterung liest den danach zugänglichen Seiteninhalt; sie überträgt keine Anmeldedaten.
-- Übergabe über eine gemeinsame App Group. Inhalte werden lokal geschützt gespeichert und nach bestätigter Übernahme in den Entwurf gelöscht. Nicht übernommene Entwürfe verfallen nach zehn Minuten; die Bereinigung erfolgt beim nächsten Zugriff, nicht per Hintergrunddienst. Höchstens 20 wartende Auswahlen.
+- Übergabe über eine gemeinsame App Group. Inhalte werden lokal geschützt gespeichert und nach bestätigter Übernahme in den Entwurf gelöscht. Nicht übernommene Entwürfe verfallen nach 24 Stunden; die Bereinigung erfolgt beim nächsten Zugriff, nicht per Hintergrunddienst. Höchstens 20 wartende Auswahlen. Das Ablagefach-Symbol in der App öffnet vorhandene Entwürfe zur Wiederaufnahme.
 - Speicherung erst nach der Prüfung im bestehenden Ablage-Dialog. Safari und App haben separate Sitzungen.
 
 ## In Xcode installieren
@@ -49,3 +49,9 @@ Safari-Web-Extension-Dokumentation: https://developer.apple.com/safari/extension
 ## Skriptprüfung
 
 `node tests/bridge.test.cjs`
+
+## Clipping-Verfeinerung 0.2
+
+Die Artikel- und Bereichserfassung übernimmt sichere Links, Tabellen, Qualitätsmeldungen, Nummerierung und Rückgängig aus dem Chrome-Clipper. Lokale App-Group-Entwürfe werden erst nach Speichern/Verwerfen entfernt. Änderungen im App-Entwurf bleiben lokal erhalten und können über das Ablagefach-Symbol wieder aufgenommen werden. Ein angepasster Simulator-Build ist erfolgreich.
+
+Der Screenshot-Editor ist als gemeinsame Ressource enthalten. Seine Auswahl wird in Safari nur angeboten, wenn der Browser `tabs.captureVisibleTab` bereitstellt. Bildschirmaufnahme auf einem echten iPhone wurde nicht bestätigt; Bereichsauswahl bleibt der vorgesehene mobile Weg. Gerätesignierung, Safari-Berechtigungen und die vollständige Speicherung vom iPhone aus müssen weiterhin praktisch getestet werden.

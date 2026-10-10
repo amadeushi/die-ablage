@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Die ABLAGE",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bereiche aus Safari in Die ABLAGE \u00fcbernehmen.",
   "permissions": [
     "activeTab",
     "scripting",
-    "nativeMessaging"
+    "nativeMessaging",
+    "storage"
   ],
   "action": {
     "default_title": "Mit Die ABLAGE clippen",

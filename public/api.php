@@ -65,6 +65,8 @@ try{
  if($action==='edit')respond(clip_edit($m,$v));
  if($action==='collection'){$name=trim(field($v,'name',100,true));$id=uid();sql('INSERT INTO collections(id,name,created_at) VALUES(?,?,?)',[$id,$name,timestamp()]);respond(['id'=>$id]);}
  if($action==='clip'){
+  $captureId=field($v,'captureId',36);if($captureId&&!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i',$captureId))problem('Ungültiger Clip-Entwurf.');
+  if($captureId){$existing=sql('SELECT id,author FROM clips WHERE id=?',[$captureId])->fetch();if($existing){if($existing['author']!==$m['email'])problem('Dieser Entwurf kann nicht übernommen werden.',409);respond(['id'=>$existing['id']]);}}
   duplicate_gate($v);
   $tags=tags_value($v);
   $url=field($v,'url',10000,true);$u=parse_url($url);if(!$u||!in_array($u['scheme']??'',['http','https'],true)||empty($u['host'])||isset($u['user'])||isset($u['pass'])||!filter_var($url,FILTER_VALIDATE_URL))problem('Bitte eine gültige Website-Adresse mit https:// oder http:// eingeben.');
@@ -72,7 +74,7 @@ try{
   $content=field($v,'content',1000000,$type!=='link');$note=field($v,'note',20000);$collection=field($v,'collectionId',36)?:null;
   if($collection&&!sql('SELECT id FROM collections WHERE id=?',[$collection])->fetch())problem('Diese Sammlung existiert nicht.');
   $archive=field($v,'archive',5000000);if(strlen($archive)>5000000)problem('Die Seitenkopie ist zu groß. Bitte eine Auswahl clippen.');
-  $id=uid();$key=null;
+  $id=$captureId?:uid();$key=null;
   if($archive&&$type!=='link'){$dir=dirname(__DIR__).'/private/archives';if(!is_dir($dir)&&!mkdir($dir,0700,true))problem('Die Seitenkopie kann nicht gespeichert werden.',503);$key=bin2hex(random_bytes(16)).'.html';if(file_put_contents(archive_path($key),$archive,LOCK_EX)===false)problem('Die Seitenkopie kann nicht gespeichert werden.',503);chmod(archive_path($key),0600);}
   try{db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);sql('UPDATE clips SET content_format=?,note_format=? WHERE id=?',[($v['contentFormat']??'text')==='markdown'?'markdown':'text',($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if($key)unlink(archive_path($key));throw $e;}
   respond(['id'=>$id]);

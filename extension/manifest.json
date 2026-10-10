@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Die ABLAGE Webclipper",
-  "version": "1.3.0",
-  "description": "Artikel, ausgewählte Bereiche, Seiten und Links in Die ABLAGE prüfen und speichern.",
+  "version": "1.4.0",
+  "description": "Artikel, ausgew\u00e4hlte Bereiche, Seiten und Links in Die ABLAGE pr\u00fcfen und speichern.",
   "permissions": [
     "activeTab",
     "scripting",

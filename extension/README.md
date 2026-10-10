@@ -19,3 +19,13 @@ Die Erfassungslogik ist erhalten; die neue Domain-Berechtigung ist als Quellcode
 „Vorheriger Bereich“, „Nächster Bereich“ und „Bereich übernehmen“ erlauben Tastaturbedienung. Escape oder „Abbrechen“ beendet die Auswahl. Maximal 50 Bereiche, 1 MB Text und 5 MB Seitenkopie. Nicht kopierbare Bilder werden als Hinweis erfasst; eingebettete Frames und Shadow-DOM-Inhalte werden nicht erfasst.
 
 Vorhandene Installation aktualisieren: ZIP in den bisherigen Erweiterungsordner entpacken und in chrome://extensions auf „Neu laden“ klicken. Danach die Quellseite neu laden.
+
+## Version 1.4
+
+Entwürfe bleiben bis zur bestätigten Speicherung oder ausdrücklichem Verwerfen erhalten. Die Erweiterung bietet die Wiederaufnahme im Popup; Entwürfe verfallen nach 24 Stunden und werden beim nächsten Zugriff bereinigt. Bis zu 20 Entwürfe können warten. Bearbeitungen im geöffneten Entwurf werden an die Erweiterung zurückgegeben. Ein erneuter Speicheraufruf mit derselben Entwurfs-ID erzeugt keinen zweiten Clip.
+
+Artikel übernehmen sichere Quellenlinks und Markdown-Tabellen. Fehlende Bilder, unklare Artikel und kurze Erfassungen werden vor dem Speichern angezeigt. Die Bereichsauswahl bietet Nummerierung, einzelne Entfernen-Aktionen und Rückgängig.
+
+Die neue Clip-Art **Screenshot · sichtbarer Bereich** öffnet einen Bildeditor für Ausschnitt, Textmarker, Pfeile und Text. Sie erfasst den aktuell sichtbaren Browserbereich; keine automatisch zusammengesetzte Gesamtseite. Bildtext ist ohne OCR nicht durchsuchbar; hinzugefügte Textanmerkungen werden zusätzlich als Lesetext gespeichert. Bilder findest du in der gespeicherten Seitenkopie des Clips. Die Bearbeitung funktioniert auch per Tastatur: Bild fokussieren, Pfeiltasten bewegen die Position, Enter setzt Anfang/Ende, Escape bricht ab.
+
+Nach dem Download ZIP entpacken und in `chrome://extensions` die entpackte Erweiterung neu laden oder den neuen Ordner auswählen. Die Bibliothek ebenfalls neu laden, damit der neue Übergabeablauf aktiv ist.
