@@ -7,8 +7,8 @@ function library_personal(array $m):array {
 }
 function library_search_save(array $m,array $v):array {
  $name=trim(field($v,'name',100,true));$raw=$v['params']??null;if(!is_array($raw))problem('Bitte die Suchfilter prüfen.');$p=[];
- foreach(['q'=>300,'view'=>36,'type'=>16,'tag'=>80,'source'=>253,'author'=>190,'from'=>10,'until'=>10] as $key=>$max)$p[$key]=field($raw,$key,$max);
- $p['view']=$p['view']?:'all';$p['type']=$p['type']?:'all';if($p['view']==='trash')problem('Papierkorb-Suchen können nicht gespeichert werden.');
+ foreach(['q'=>300,'view'=>36,'type'=>16,'tag'=>80,'source'=>253,'author'=>190,'from'=>10,'until'=>10,'sort'=>16] as $key=>$max)$p[$key]=field($raw,$key,$max);
+ $p['sort']=$p['sort']?:'relevance';$p['view']=$p['view']?:'all';$p['type']=$p['type']?:'all';if($p['view']==='trash')problem('Papierkorb-Suchen können nicht gespeichert werden.');
  if(!in_array($p['view'],['all','shared','favorites'],true)&&!sql('SELECT id FROM collections WHERE id=?',[$p['view']])->fetch())problem('Diese Sammlung existiert nicht.');
  require_once __DIR__.'/library-list.php';library_page($p,$m['email']);
  if((int)sql('SELECT COUNT(*) FROM saved_searches WHERE member_email=?',[$m['email']])->fetchColumn()>=25)problem('Du hast bereits 25 Suchen gespeichert. Entferne zuerst eine Suche.');

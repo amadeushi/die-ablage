@@ -12,7 +12,7 @@ export async function readPdf(file:File,progress:(value:string)=>void,signal:Abo
  try{
   const pdf=await task.promise;if(pdf.numPages>500)throw Error('PDFs mit bis zu 500 Seiten werden unterstützt.');
   const details=await pdf.getMetadata();const info:any=details.info,metadata=details.metadata;const clean=(value:unknown)=>typeof value==='string'?value.replace(/\u0000/g,'').slice(0,2000):'';
-  const meta={filename:file.name.slice(0,255),title:clean(info.Title||metadata?.get('dc:title')),author:clean(info.Author||metadata?.get('dc:creator')),subject:clean(info.Subject),keywords:clean(info.Keywords),creationDate:clean(info.CreationDate),modificationDate:clean(info.ModDate),pages:pdf.numPages,bytes:file.size};
+  const meta={filename:file.name.slice(0,255),title:clean(info.Title||metadata?.get('dc:title')),author:clean(info.Author||metadata?.get('dc:creator')),subject:clean(info.Subject),keywords:clean(info.Keywords),creationDate:clean(info.CreationDate),modificationDate:clean(info.ModDate),pages:pdf.numPages,bytes:file.size,textPages:0,coverageKnown:true};
   const parts:string[]=[];let size=0,thumbnail='';
   for(let i=1;i<=pdf.numPages;i++){
    if(signal.aborted)throw new DOMException('Abgebrochen','AbortError');progress(`Text wird gelesen · Seite ${i} von ${pdf.numPages}`);
@@ -22,6 +22,7 @@ export async function readPdf(file:File,progress:(value:string)=>void,signal:Abo
    page.cleanup();
   }
   if(!parts.length)throw Error('Kein durchsuchbarer Text gefunden. Scans ohne Textschicht benötigen OCR und werden noch nicht unterstützt.');
+  meta.textPages=parts.length;
   progress('PDF ist bereit zur Prüfung.');
   const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Die PDF-Datei konnte nicht gelesen werden.'));reader.readAsDataURL(file);});
   if(signal.aborted)throw new DOMException('Abgebrochen','AbortError');return {metadata:meta,content:parts.join('\n\n'),file:base64,thumbnail};

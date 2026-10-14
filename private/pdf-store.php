@@ -5,6 +5,11 @@ function pdf_metadata(string $key): array {
  $path=archive_path($key).'.json';if(!is_file($path))return [];
  $meta=json_decode(file_get_contents($path),true);return is_array($meta)?$meta:[];
 }
+function pdf_text_coverage(string $content,int $pages): array {
+ preg_match_all('/(?:^|\n)Seite (\d+)\n/u',$content,$matches);$found=[];
+ foreach($matches[1] as $page){$page=(int)$page;if($page>=1&&$page<=$pages)$found[$page]=true;}
+ return ['textPages'=>count($found),'coverageKnown'=>(bool)$found];
+}
 function pdf_index_prefix(array $meta): string {
  return "[PDF-Dokumentdaten]\n".implode("\n",array_map(fn($key)=>$key.': '.($meta[$key]??''),['filename','title','author','subject','keywords','creationDate','modificationDate','pages']))."\n\n[PDF-Lesetext]\n";
 }
@@ -20,7 +25,7 @@ function pdf_upload(array $m,array $v): array {
  foreach(['filename','title','author','subject','keywords','creationDate','modificationDate'] as $name)$meta[$name]=field($raw,$name,$name==='filename'?255:2000);
  $meta['filename']=basename(str_replace('\\','/',$meta['filename']))?:'Dokument.pdf';
  $pages=$raw['pages']??0;if(!is_int($pages)||$pages<1||$pages>500)problem('PDFs mit bis zu 500 Seiten werden unterstützt.');
- $meta['pages']=$pages;$meta['bytes']=strlen($bytes);$meta['sha256']=hash('sha256',$bytes);
+ $meta['pages']=$pages;$meta=array_merge($meta,pdf_text_coverage($content,$pages));$meta['bytes']=strlen($bytes);$meta['sha256']=hash('sha256',$bytes);
  $note=field($v,'note',20000);$key=bin2hex(random_bytes(16)).'.pdf';$dir=__DIR__.'/archives';if(!is_dir($dir)&&!mkdir($dir,0700,true))problem('Die PDF-Datei kann nicht gespeichert werden.',503);
  $path=archive_path($key);
  try{

@@ -46,3 +46,14 @@ echo "PASS: 95 clips, bounded summaries, 40-item pagination, stable pages, full-
 sql('INSERT INTO clip_favorites VALUES(?,?)',['5','me']);check(library_page(['view'=>'favorites'],'me')['totalResults']===1,'Personal favorite');check(library_page(['view'=>'favorites'],'other')['totalResults']===0,'Favorites private');sql('INSERT INTO clip_trash VALUES(?,?,?)',['5',100,'me']);check(library_page(['q'=>'SUCHWORT'])['totalResults']===0,'Trash hidden from search');check(library_page(['view'=>'trash'])['totalResults']===1,'Trash view');check(library_page(['view'=>'favorites'],'me')['totalResults']===0,'Trashed favorite hidden');
 
 sql('UPDATE shares SET expires_at=?',[timestamp()-1]);check(library_page(['view'=>'shared'])['totalResults']===0,'Expired links excluded from shared view');
+
+sql('UPDATE clips SET title=?,content=?,created_at=? WHERE id=?',['Bahnhof Datenschutz ergänzende Angaben','Bahnhof Datenschutz',1000,'94']);
+check(library_page(['q'=>'Bahnhof Datenschutz'])['clips'][0]['id']==='2','Exact title ranks above longer matching title');
+check(library_page(['q'=>'Bahnhof Datenschutz','sort'=>'newest'])['clips'][0]['id']==='94','Explicit newest sort overrides relevance');
+check(library_page(['q'=>'Bahnhof Datenschutz','sort'=>'oldest'])['clips'][0]['id']==='2','Explicit oldest sort');
+try{library_page(['sort'=>'bad']);throw new RuntimeException('Invalid sort accepted');}catch(AppError){}
+require_once dirname(__DIR__).'/private/pdf-store.php';
+check(pdf_text_coverage("Seite 1\nInhalt\n\nSeite 3\nWeitere Angaben",3)===['textPages'=>2,'coverageKnown'=>true],'Mixed PDF coverage');
+check(pdf_text_coverage("Seite 1\nText\nSeite 1\nWiederholung\nSeite 99\nUngültig",3)['textPages']===1,'Unique in-range PDF pages');
+check(!pdf_text_coverage('Alter Lesetext ohne Seitenmarkierungen',3)['coverageKnown'],'Legacy coverage stays unknown');
+echo "PASS: exact-title ranking, chronological sorting, invalid sort guard, partial and unknown PDF coverage.\n";
