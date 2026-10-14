@@ -9,8 +9,8 @@ header .brand-article{text-transform:none;font-size:.72em}
 *{box-sizing:border-box}button,input,select{min-height:44px;font-size:16px}.confirm input{min-height:20px;width:20px;flex-shrink:0}.draft-row{display:flex;gap:8px;margin:8px 0}.draft-row button:first-child{flex:1;text-align:left;overflow-wrap:anywhere}.draft-row button:last-child{width:auto}.secondary{background:white;color:#202022;border:1px solid #cececb}h2{font:600 20px/1.3 Barlow,sans-serif}#draft-section{border-top:1px solid #dededb;margin-top:20px;padding-top:12px}
 
 /* Chrome popups have a 600px height limit. Keep the capture action outside the scrolling content. */
-html{width:360px;max-width:100%;overflow:hidden}
-body{width:360px;max-width:100%;height:580px;max-height:100dvh;padding:0;display:flex;flex-direction:column;overflow:hidden}
+html{width:360px;min-width:360px;height:580px;min-height:580px;overflow:hidden}
+body{width:360px;min-width:360px;height:580px;min-height:580px;padding:0;display:flex;flex-direction:column;overflow:hidden}
 main{flex:1;min-height:0;overflow-y:auto;padding:18px 20px 12px;scrollbar-color:#626265 #f4f4f2;scrollbar-width:thin}
 header{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
 header img{width:110px}header strong{font-size:27px;white-space:nowrap}
