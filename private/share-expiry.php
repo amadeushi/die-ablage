@@ -9,7 +9,7 @@ function share_expiry(array $v):?int {
 }
 function share_by_token(string $token):array {
  if(!preg_match('/^[a-f0-9]{64}$/D',$token))problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
- $s=sql('SELECT target_id,kind,expires_at FROM shares WHERE hash=?',[hash('sha256',$token)])->fetch();if(!$s)problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
+ $s=sql('SELECT s.id,s.target_id,s.kind,s.expires_at,o.share_id AS options_present,o.include_note,o.clip_ids FROM shares s LEFT JOIN share_options o ON o.share_id=s.id WHERE s.hash=?',[hash('sha256',$token)])->fetch();if(!$s)problem('Der Leselink ist ungültig oder wurde deaktiviert.',404);
  if(!share_is_active($s))problem('Dieser Leselink ist abgelaufen. Bitte beim Absender eine neue Freigabe anfordern.',410);
  return $s;
 }

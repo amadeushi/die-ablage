@@ -13,6 +13,17 @@ function pdf_text_coverage(string $content,int $pages): array {
 function pdf_index_prefix(array $meta): string {
  return "[PDF-Dokumentdaten]\n".implode("\n",array_map(fn($key)=>$key.': '.($meta[$key]??''),['filename','title','author','subject','keywords','creationDate','modificationDate','pages']))."\n\n[PDF-Lesetext]\n";
 }
+function pdf_duplicates(string $hash):array {
+ if(!preg_match('/^[a-f0-9]{64}$/D',$hash))problem('Bitte den PDF-Prüfwert prüfen.');$found=[];
+ foreach(sql("SELECT c.id,c.title,c.url,c.type,c.archive_key,c.created_at FROM clips c WHERE c.type='pdf' AND ".active_clip_condition()." ORDER BY c.created_at DESC")->fetchAll() as $clip){$meta=pdf_metadata($clip['archive_key']??'');if(($meta['sha256']??'')===$hash){unset($clip['archive_key']);$found[]=$clip;}}
+ return array_slice($found,0,5);
+}
+function pdf_versions(array $clip):array {
+ if(($clip['type']??'')!=='pdf')return [];$nodes=[];$links=[];
+ foreach(sql("SELECT c.id,c.title,c.url,c.type,c.archive_key,c.created_at FROM clips c WHERE c.type='pdf' AND ".active_clip_condition())->fetchAll() as $item){$previous=pdf_metadata($item['archive_key']??'')['previousId']??'';unset($item['archive_key']);$nodes[$item['id']]=$item;if($previous){$links[$previous][]=$item['id'];$links[$item['id']][]=$previous;}}
+ $seen=[];$queue=[$clip['id']];while($queue&&count($seen)<100){$id=array_shift($queue);if(isset($seen[$id])||!isset($nodes[$id]))continue;$seen[$id]=true;foreach($links[$id]??[] as $next)if(!isset($seen[$next]))$queue[]=$next;}
+ $result=array_values(array_intersect_key($nodes,$seen));usort($result,fn($a,$b)=>$b['created_at']<=>$a['created_at']);return count($result)>1?$result:[];
+}
 function pdf_upload(array $m,array $v): array {
  $tags=tags_value($v);$encoded=field($v,'file',5600000,true);$bytes=base64_decode($encoded,true);
  if($bytes===false||strlen($bytes)>4194304||strlen($bytes)<8||!str_contains(substr($bytes,0,1024),'%PDF-')||!str_contains(substr($bytes,-2048),'%%EOF'))problem('Bitte eine gültige PDF-Datei mit maximal 4 MB wählen.');
@@ -25,6 +36,8 @@ function pdf_upload(array $m,array $v): array {
  foreach(['filename','title','author','subject','keywords','creationDate','modificationDate'] as $name)$meta[$name]=field($raw,$name,$name==='filename'?255:2000);
  $meta['filename']=basename(str_replace('\\','/',$meta['filename']))?:'Dokument.pdf';
  $pages=$raw['pages']??0;if(!is_int($pages)||$pages<1||$pages>500)problem('PDFs mit bis zu 500 Seiten werden unterstützt.');
+ $matches=pdf_duplicates(hash('sha256',$bytes));if($matches&&($v['allowDuplicate']??false)!==true)respond(['error'=>'Diese PDF-Datei ist bereits abgelegt. Öffne den vorhandenen Clip oder bestätige eine weitere Kopie.','duplicates'=>$matches],409);
+ $previous=field($v,'previousVersionId',36);if($previous&&!sql("SELECT c.id FROM clips c WHERE c.id=? AND c.type='pdf' AND ".active_clip_condition(),[$previous])->fetch())problem('Die frühere PDF-Fassung ist nicht verfügbar.',404);if($previous)$meta['previousId']=$previous;
  $meta['pages']=$pages;$meta=array_merge($meta,pdf_text_coverage($content,$pages));$meta['bytes']=strlen($bytes);$meta['sha256']=hash('sha256',$bytes);
  $note=field($v,'note',20000);$key=bin2hex(random_bytes(16)).'.pdf';$dir=__DIR__.'/archives';if(!is_dir($dir)&&!mkdir($dir,0700,true))problem('Die PDF-Datei kann nicht gespeichert werden.',503);
  $path=archive_path($key);

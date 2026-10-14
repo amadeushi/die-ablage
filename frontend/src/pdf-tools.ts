@@ -25,6 +25,6 @@ export async function readPdf(file:File,progress:(value:string)=>void,signal:Abo
   meta.textPages=parts.length;
   progress('PDF ist bereit zur Prüfung.');
   const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Die PDF-Datei konnte nicht gelesen werden.'));reader.readAsDataURL(file);});
-  if(signal.aborted)throw new DOMException('Abgebrochen','AbortError');return {metadata:meta,content:parts.join('\n\n'),file:base64,thumbnail};
+  if(signal.aborted)throw new DOMException('Abgebrochen','AbortError');const digest=await crypto.subtle.digest('SHA-256',buffer);const hash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');return {hash,metadata:meta,content:parts.join('\n\n'),file:base64,thumbnail};
  }catch(error){if(signal.aborted)throw new DOMException('Abgebrochen','AbortError');if(locked)throw Error('Passwortgeschützte PDFs werden vorerst nicht unterstützt.');throw error;}finally{signal.removeEventListener('abort',abort);await task.destroy();}
 }

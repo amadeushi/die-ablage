@@ -34,7 +34,7 @@ try{
   else{member();$clip=sql('SELECT c.*,(SELECT deleted_at FROM clip_trash tr WHERE tr.clip_id=c.id) AS deleted_at FROM clips c WHERE id=?',[$id])->fetch();}
   if(!$clip)problem('Dieser Clip ist nicht verfügbar.',404);
   if(isset($_GET['pdf']))pdf_download($clip);
-  if(!isset($_GET['archive']))respond(isset($_GET['token'])?public_clip($clip):array_merge(public_clip($clip),['edit_revision'=>clip_edit_revision($clip),'favorite'=>(bool)sql('SELECT COUNT(*) FROM clip_favorites WHERE clip_id=? AND member_email=?',[$id,member()['email']])->fetchColumn()]));
+  if(!isset($_GET['archive']))respond(isset($_GET['token'])?public_clip($clip):array_merge(public_clip($clip),['versions'=>pdf_versions($clip),'edit_revision'=>clip_edit_revision($clip),'favorite'=>(bool)sql('SELECT COUNT(*) FROM clip_favorites WHERE clip_id=? AND member_email=?',[$id,member()['email']])->fetchColumn()]));
   if($clip['type']==='pdf')problem('Bitte die PDF-Datei über den PDF-Link öffnen.',404);
   if(!$clip['archive_key']||!is_file(archive_path($clip['archive_key'])))problem('Die Seitenkopie ist nicht verfügbar.',404);
   header("Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");header('Content-Type: text/html; charset=utf-8');
@@ -45,12 +45,14 @@ try{
  $m=member();
  if($method==='GET'){
   if(isset($_GET['marks']))respond(['marks'=>reader_marks_list($m,field($_GET,'id',36,true))]);
-  if(isset($_GET['duplicates']))respond(['duplicates'=>clip_duplicates(field($_GET,'url',10000))]);
-  $base=array_merge(library_options(),library_personal($m),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>sql('SELECT id,target_id,kind,created_at,expires_at FROM shares')->fetchAll()]);
+  if(isset($_GET['pdfCandidates']))respond(['clips'=>sql("SELECT c.id,c.title,c.created_at FROM clips c WHERE c.type='pdf' AND ".active_clip_condition()." ORDER BY c.created_at DESC LIMIT 100")->fetchAll()]);
+  if(isset($_GET['duplicates']))respond(['duplicates'=>isset($_GET['pdfHash'])?pdf_duplicates(field($_GET,'pdfHash',64,true)):clip_duplicates(field($_GET,'url',10000))]);
+  $base=array_merge(library_options(),library_personal($m),['user'=>$m,'csrf'=>$_SESSION['csrf'],'collections'=>sql('SELECT * FROM collections ORDER BY created_at')->fetchAll(),'members'=>sql('SELECT email,name,role,CASE WHEN password_hash IS NULL THEN 1 ELSE 0 END AS pending FROM members ORDER BY created_at')->fetchAll(),'shares'=>library_share_list()]);
   if(isset($_GET['list'])){require dirname(__DIR__).'/private/library-list.php';respond(array_merge($base,library_page($_GET,$m['email'])));}
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
  $v=input();$action=$v['action']??'';
+ if($action==='sharePreview')respond(share_preview_data($v));
  if(in_array($action,['addMark','removeMark'],true))respond(reader_marks_change($m,$v));
  if($action==='pdf'){duplicate_gate($v);respond(pdf_upload($m,$v));}
  if($action==='export')collection_export($v);
@@ -85,11 +87,11 @@ try{
   $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);if(!in_array($kind,['clip','collection'],true))problem('Bitte den Freigabetyp prüfen.');
   if($action==='shareExpiry'||$action==='revokeShare'){
    $shareId=field($v,'shareId',36,true);if(!sql('SELECT id FROM shares WHERE id=? AND target_id=? AND kind=?',[$shareId,$id,$kind])->fetch())problem('Dieser Leselink ist nicht verfügbar.',404);
-   if($action==='revokeShare')sql('DELETE FROM shares WHERE id=?',[$shareId]);else sql('UPDATE shares SET expires_at=? WHERE id=?',[share_expiry($v),$shareId]);respond(['ok'=>true]);
+   if($action==='revokeShare'){db()->beginTransaction();sql('DELETE FROM shares WHERE id=?',[$shareId]);sql('DELETE FROM share_options WHERE share_id=?',[$shareId]);db()->commit();}else sql('UPDATE shares SET expires_at=? WHERE id=?',[share_expiry($v),$shareId]);respond(['ok'=>true]);
   }
-  if($action==='revoke'){sql('DELETE FROM shares WHERE target_id=? AND kind=?',[$id,$kind]);respond(['ok'=>true]);}
+  if($action==='revoke'){db()->beginTransaction();sql('DELETE FROM share_options WHERE share_id IN (SELECT id FROM shares WHERE target_id=? AND kind=?)',[$id,$kind]);sql('DELETE FROM shares WHERE target_id=? AND kind=?',[$id,$kind]);db()->commit();respond(['ok'=>true]);}
   $table=$kind==='clip'?'clips':'collections';if(!sql('SELECT id FROM '.$table.' c WHERE id=?'.($kind==='clip'?' AND '.active_clip_condition():''),[$id])->fetch())problem('Dieser Inhalt ist nicht verfügbar.',404);
-  $expiry=share_expiry($v);$token=secret();sql('INSERT INTO shares(id,hash,target_id,kind,created_at,expires_at) VALUES(?,?,?,?,?,?)',[uid(),hash('sha256',$token),$id,$kind,timestamp(),$expiry]);respond(['token'=>$token,'expiresAt'=>$expiry]);
+  $options=share_options_value($v,$kind);$clips=$options['scope']==='fixed'?share_target_clips($id,$kind,'fixed'):[];$expiry=share_expiry($v);$token=secret();$shareId=uid();try{db()->beginTransaction();sql('INSERT INTO shares(id,hash,target_id,kind,created_at,expires_at) VALUES(?,?,?,?,?,?)',[$shareId,hash('sha256',$token),$id,$kind,timestamp(),$expiry]);sql('INSERT INTO share_options(share_id,include_note,clip_ids) VALUES(?,?,?)',[$shareId,$options['includeNote']?1:0,$options['scope']==='fixed'?json_encode(array_column($clips,'id')):null]);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}respond(['token'=>$token,'expiresAt'=>$expiry]);
  }
  if($action==='member'){
   owner($m);$email=strtolower(trim(field($v,'email',190,true)));if(!filter_var($email,FILTER_VALIDATE_EMAIL))problem('Bitte eine gültige E-Mail-Adresse eingeben.');

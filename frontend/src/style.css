@@ -73,3 +73,5 @@
 .backend-statusbar{top:var(--reader-bar-height,64px);z-index:5}.backend-statusbar .search-navigation{margin:8px 0;position:static;font:14px Barlow,sans-serif;flex-wrap:wrap}.backend-statusbar .search-navigation button{min-height:44px}.backend-statusbar .shared-tool-row>.text-btn{white-space:nowrap;padding-inline:0;gap:4px}
 
 .search-sort{display:flex;align-items:center;gap:8px;font-size:14px}.search-sort select{min-height:44px;max-width:100%}@media(max-width:720px){.search-sort{width:100%;justify-content:space-between}}
+
+.share-preview{margin:16px 0;padding:12px 0;border-block:1px solid var(--line,#dededb)}.share-preview-content{max-height:40vh;overflow:auto;padding:16px;background:var(--white,#fff);overflow-wrap:anywhere}.share-preview-content h3{font-size:24px}.share-open{display:inline-flex;align-items:center;min-height:44px;margin:12px 0}.share-dialog .check-label{align-items:flex-start}.share-dialog .check-label input{flex:none}
