@@ -14,7 +14,7 @@ assert call('/api/auth',json.dumps({'action':'login','email':'owner@example.test
 csrf=call('/api/auth')[1]['csrf']
 def document(target):
  objects=[b'<< /Type /Catalog /Pages 2 0 R >>',b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']
- text=b'BT /F1 18 Tf 40 740 Td (Digital newspaper upload test) Tj ET';objects.append(b'<< /Length '+str(len(text)).encode()+b' >>\nstream\n'+text+b'\nendstream')
+ text=('BT /F1 18 Tf 40 740 Td (Digital newspaper upload test '+uuid.uuid4().hex+') Tj ET').encode();objects.append(b'<< /Length '+str(len(text)).encode()+b' >>\nstream\n'+text+b'\nendstream')
  padding=b'x'*(target-2048);objects.append(b'<< /Length '+str(len(padding)).encode()+b' >>\nstream\n'+padding+b'\nendstream');raw=b'%PDF-1.4\n';offsets=[]
  for i,obj in enumerate(objects,1):offsets.append(len(raw));raw+=str(i).encode()+b' 0 obj\n'+obj+b'\nendobj\n'
  xref=len(raw);raw+=b'xref\n0 7\n0000000000 65535 f \n'+b''.join(('%010d 00000 n \n'%n).encode() for n in offsets)+b'trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n'+str(xref).encode()+b'\n%%EOF\n';return raw

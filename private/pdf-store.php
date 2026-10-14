@@ -50,6 +50,7 @@ function pdf_upload(array $m,array $v): array {
  $pages=$raw['pages']??0;if(!is_int($pages)||$pages<1||$pages>500)problem('PDFs mit bis zu 500 Seiten werden unterstützt.');
  $matches=pdf_duplicates(hash('sha256',$bytes));if($matches&&($v['allowDuplicate']??false)!==true)respond(['error'=>'Diese PDF-Datei ist bereits abgelegt. Öffne den vorhandenen Clip oder bestätige eine weitere Kopie.','duplicates'=>$matches],409);
  $previous=field($v,'previousVersionId',36);if($previous&&!sql("SELECT c.id FROM clips c WHERE c.id=? AND c.type='pdf' AND ".active_clip_condition(),[$previous])->fetch())problem('Die frühere PDF-Fassung ist nicht verfügbar.',404);if($previous)$meta['previousId']=$previous;
+ $meta['textOrder']=($raw['textOrder']??'source')==='layout'?'layout':'source';foreach(['layoutPages','fallbackPages'] as $k)$meta[$k]=is_int($raw[$k]??null)?max(0,min($pages,$raw[$k])):0;
  $meta['pages']=$pages;$meta=array_merge($meta,pdf_text_coverage($content,$pages));$meta['bytes']=strlen($bytes);$meta['sha256']=hash('sha256',$bytes);
  $note=field($v,'note',20000);$key=bin2hex(random_bytes(16)).'.pdf';$dir=__DIR__.'/archives';if(!is_dir($dir)&&!mkdir($dir,0700,true))problem('Die PDF-Datei kann nicht gespeichert werden.',503);
  $path=archive_path($key);
