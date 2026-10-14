@@ -47,6 +47,14 @@ function input(): array {
  if($origin!==config()['origin'])problem('Diese Anfrage stammt nicht von der Bibliothek.',403);
  $token=$_SERVER['HTTP_X_CSRF_TOKEN']??($_POST['csrf']??'');
  if(!is_string($token)||!hash_equals($_SESSION['csrf'],$token))problem('Die Sitzung ist abgelaufen. Bitte die Seite neu laden.',403);
+ if(str_starts_with(strtolower($_SERVER['CONTENT_TYPE']??''),'multipart/form-data')){
+  if((int)($_SERVER['CONTENT_LENGTH']??0)>40*1024*1024)problem('Der PDF-Upload ist zu groß (maximal 25 MB Datei und 5 MB Text).',413);
+  $payload=$_POST['payload']??'';if(!is_string($payload)||strlen($payload)>8*1024*1024)problem('Die PDF-Angaben sind zu groß.',413);
+  if($payload==='')problem('Der Upload konnte nicht gelesen werden. Bitte die Datei erneut wählen; möglicherweise ist die Uploadgrenze des Servers zu niedrig.',413);
+  try{$v=json_decode($payload,true,32,JSON_THROW_ON_ERROR);}catch(JsonException){problem('Die PDF-Angaben konnten nicht gelesen werden.');}
+  if(!is_array($v)||($v['action']??'')!=='pdf'||($_GET['route']??'')!=='library')problem('Dieser Datei-Upload wird nicht unterstützt.');
+  return $v;
+ }
  if((int)($_SERVER['CONTENT_LENGTH']??0)>12000000)problem('Der Clip ist zu groß. Bitte weniger Inhalt auswählen.',413);
  $raw=file_get_contents('php://input',false,null,0,12000001);
  if(strlen($raw)>12000000)problem('Der Clip ist zu groß.',413);

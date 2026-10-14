@@ -25,9 +25,21 @@ function pdf_versions(array $clip):array {
  $result=array_values(array_intersect_key($nodes,$seen));usort($result,fn($a,$b)=>$b['created_at']<=>$a['created_at']);return count($result)>1?$result:[];
 }
 function pdf_upload(array $m,array $v): array {
- $tags=tags_value($v);$encoded=field($v,'file',5600000,true);$bytes=base64_decode($encoded,true);
- if($bytes===false||strlen($bytes)>4194304||strlen($bytes)<8||!str_contains(substr($bytes,0,1024),'%PDF-')||!str_contains(substr($bytes,-2048),'%%EOF'))problem('Bitte eine gültige PDF-Datei mit maximal 4 MB wählen.');
- $content=field($v,'content',1000000,true);if(strlen($content)>1000000)problem('Der extrahierte PDF-Text ist zu groß (maximal 1 MB).');
+ $tags=tags_value($v);
+ if(str_starts_with(strtolower($_SERVER['CONTENT_TYPE']??''),'multipart/form-data')){
+  $file=$_FILES['file']??null;if(!is_array($file)||!isset($file['error'])||!is_int($file['error']))problem('Bitte eine PDF-Datei auswählen.');
+  if(in_array($file['error'],[UPLOAD_ERR_INI_SIZE,UPLOAD_ERR_FORM_SIZE],true))problem('Die PDF überschreitet die Uploadgrenze des Servers.',413);
+  if($file['error']!==UPLOAD_ERR_OK)problem('Die PDF wurde nicht vollständig hochgeladen. Bitte erneut versuchen.');
+  if(!is_string($file['tmp_name']??null)||!is_uploaded_file($file['tmp_name']))problem('Der PDF-Upload ist ungültig.');
+  $size=filesize($file['tmp_name']);if($size===false||$size>25*1024*1024)problem('Bitte eine PDF mit maximal 25 MB wählen.',413);
+  $bytes=file_get_contents($file['tmp_name']);
+ }else{
+  // Retain the existing small JSON upload for older clients.
+  $encoded=field($v,'file',5600000,true);$bytes=base64_decode($encoded,true);
+  if($bytes!==false&&strlen($bytes)>4194304)problem('Bitte große PDFs über den Datei-Upload der Web-App hinzufügen.',413);
+ }
+ if($bytes===false||strlen($bytes)>25*1024*1024||strlen($bytes)<8||!str_contains(substr($bytes,0,1024),'%PDF-')||!str_contains(substr($bytes,-2048),'%%EOF'))problem('Bitte eine gültige PDF-Datei mit maximal 25 MB wählen.');
+ $content=field($v,'content',5*1024*1024,true);if(strlen($content)>5*1024*1024)problem('Der extrahierte PDF-Text ist zu groß (maximal 5 MB).');
  $title=trim(field($v,'title',300,true));if(!$title)problem('Bitte einen Titel eingeben.');
  $collection=field($v,'collectionId',36)?:null;if($collection&&!sql('SELECT id FROM collections WHERE id=?',[$collection])->fetch())problem('Diese Sammlung existiert nicht.');
  $id=uid();$url=trim(field($v,'url',10000));if(!$url)$url=config()['origin'].'/api/shared?id='.$id.'&pdf=1';

@@ -28,7 +28,7 @@ Seitenkopien speichern Text und Struktur; geschützte Bilder, Medien und dynamis
 ## Betrieb, Sicherung und Wiederherstellung
 
 - Datenbank **und** `private/archives/` gemeinsam regelmäßig sichern. `private/config.php` sicher aufbewahren. Sitzungen und Anmelde-Limit-Dateien müssen nicht in Sicherungen aufgenommen werden.
-- PHP-Grenzen: `post_max_size` mindestens `16M`, `memory_limit` mindestens `128M`. Die App akzeptiert höchstens 12 MB pro Anfrage und 5 MB pro HTML-Seitenkopie. TLS und automatische Sicherheitsupdates des Hosting-PHP aktiv halten.
+- PHP-Grenzen: `upload_max_filesize` mindestens `32M`, `post_max_size` mindestens `40M`, `memory_limit` mindestens `256M`. Die App akzeptiert höchstens 40 MiB für PDF-Datei-Uploads, sonst 12 MB pro JSON-Anfrage und 5 MB pro HTML-Seitenkopie. TLS und automatische Sicherheitsupdates des Hosting-PHP aktiv halten.
 - Passwort vergessen: per SSH im Projektordner `php private/reset-password.php person@example.de` ausführen und das neue Passwort an der Eingabeaufforderung eingeben. Keine Passwörter als Kommandoargument übergeben. Alternativ kann die betreuende Person mit SSH-Zugang diesen Schritt durchführen. Bisherige Sitzungen werden ungültig.
 - „Bibliothek vorübergehend nicht erreichbar“: PHP-Fehlerlog, Datenbankname/Benutzer, `pdo_mysql`, Ordnerrechte und `origin` prüfen. Keine Datenbankpasswörter im Browser veröffentlichen.
 - Bei Updates `public/` sowie den Backend-Quellcode aktualisieren; **`private/config.php`, `installed.lock`, archives/, sessions/ und limits/** erhalten. Installation nicht erneut ausführen. Vorher sichern.
@@ -65,7 +65,7 @@ Clip öffnen und „Bearbeiten“ neben „Teilen“ wählen. Titel, Quellenadre
 
 „Neuer Clip“ → „PDF-Dokument“ → Datei auswählen → Angaben prüfen → „Clip speichern“. Die Verarbeitung findet zunächst im Browser statt. Erst beim Speichern wird das Original hochgeladen. Volltext aller Seiten und vorhandene Dokumentmetadaten werden durchsuchbar gespeichert. Die PDF lässt sich seitenweise ansehen, herunterladen, einer Sammlung zuordnen und über bestehende Leselinks teilen. Clip-Titel, Lesetext und Notiz sind bearbeitbar; Originaldatei und ursprüngliche Dokumentmetadaten bleiben erhalten.
 
-Grenzen: 4 MB, 500 Seiten, 1 MB extrahierter Text. Scans ohne Textschicht und passwortgeschützte PDFs werden noch nicht unterstützt. PDFs werden zunächst per Upload hinzugefügt; der Chrome-Clipper erfasst PDF-Dateien noch nicht direkt. Originaldateien liegen außerhalb des Webverzeichnisses und sind nur nach Anmeldung oder mit gültiger, passender Freigabe abrufbar. PDF.js wird nur bei Bedarf geladen; die Apache-Lizenz liegt unter public/pdfjs-LICENSE.txt.
+Grenzen: 25 MiB, 500 Seiten, 5 MiB extrahierter Text. Die Web-App lädt die Originaldatei direkt per Multipart hoch; ältere JSON-Clients bleiben auf 4 MiB begrenzt. Scans ohne Textschicht und passwortgeschützte PDFs werden noch nicht unterstützt. PDFs werden zunächst per Upload hinzugefügt; der Chrome-Clipper erfasst PDF-Dateien noch nicht direkt. Originaldateien liegen außerhalb des Webverzeichnisses und sind nur nach Anmeldung oder mit gültiger, passender Freigabe abrufbar. PDF.js wird nur bei Bedarf geladen; die Apache-Lizenz liegt unter public/pdfjs-LICENSE.txt.
 
 ## Tags und Recherche-Suche
 
