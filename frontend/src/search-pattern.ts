@@ -1,0 +1,6 @@
+export function searchPattern(term:string,global=false){
+ const normalized=term.replace(/(\p{L})[ \t]*[-‐‑]\r?\n[ \t]*(?=\p{L})/gu,'$1').replace(/-\r?\n|\u00ad/g,'').replace(/[ﬀﬁﬂﬃﬄ]/g,c=>({ﬀ:'ff',ﬁ:'fi',ﬂ:'fl',ﬃ:'ffi',ﬄ:'ffl'}[c]!)).replace(/[‐‑]/g,'-').replace(/[äÄ]/g,'ae').replace(/[öÖ]/g,'oe').replace(/[üÜ]/g,'ue').replace(/[ßẞ]/g,'ss').replace(/\s+/g,' ').toLocaleLowerCase('de');
+ const chars=Array.from(normalized),parts:string[]=[],join='(?:[ \\t]*[-‐‑]\\r?\\n[ \\t]*|\\u00ad)*',escape=(s:string)=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ for(let i=0;i<chars.length;i++){const pair=chars[i]+(chars[i+1]||''),special:Record<string,string>={ae:'ä',oe:'ö',ue:'ü',ss:'ß'};const triple=pair+(chars[i+2]||'');if(triple==='ffi'||triple==='ffl'){const last=chars[i+2];parts.push(`(?:f${join}f${join}${last}|${triple==='ffi'?'ﬃ':'ﬄ'}|ﬀ${join}${last}|f${join}${last==='i'?'ﬁ':'ﬂ'})`);i+=2;continue;}if(['ff','fi','fl'].includes(pair)){parts.push(`(?:${chars[i]}${join}${chars[++i]}|${{ff:'ﬀ',fi:'ﬁ',fl:'ﬂ'}[pair]})`);continue;}if(special[pair])parts.push(`(?:${escape(chars[i])}${join}${escape(chars[++i])}|${special[pair]})`);else parts.push(chars[i]===' '?'\\s+':chars[i]==='-'?'[-‐‑]':escape(chars[i]));}
+ return new RegExp(parts.join(join),global?'giu':'iu');
+}

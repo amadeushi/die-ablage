@@ -30,7 +30,7 @@ try{
  if($route==='share'){if($method!=='GET')problem('Nur Lesen ist erlaubt.',405);$s=shared_data((string)($_GET['token']??''));$s['clips']=array_map('public_clip',$s['clips']);respond($s);}
  if($route==='shared'){
   if($method!=='GET')problem('Nur Lesen ist erlaubt.',405);$id=(string)($_GET['id']??'');
-  if(isset($_GET['token'])){$s=shared_data((string)$_GET['token']);$clip=null;foreach($s['clips'] as $c)if($c['id']===$id)$clip=$c;}
+  if(isset($_GET['token'])){$s=shared_data((string)$_GET['token']);$clip=null;foreach($s['clips'] as $c)if($c['id']===$id)$clip=$c;if($clip&&isset($s['dossier'])){$clip=sql('SELECT c.* FROM clips c WHERE c.id=? AND '.active_clip_condition(),[$id])->fetch();if($clip)$clip['note']='';}}
   else{member();$clip=sql('SELECT c.*,(SELECT deleted_at FROM clip_trash tr WHERE tr.clip_id=c.id) AS deleted_at FROM clips c WHERE id=?',[$id])->fetch();}
   if(!$clip)problem('Dieser Clip ist nicht verfügbar.',404);
   if(isset($_GET['pdf']))pdf_download($clip);
@@ -44,6 +44,8 @@ try{
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);
  $m=member();
  if($method==='GET'){
+  if(isset($_GET['dossiers']))respond(['dossiers'=>sql('SELECT id,title,author,updated_at FROM dossiers ORDER BY updated_at DESC,id DESC LIMIT 200')->fetchAll()]);
+  if(isset($_GET['dossier'])){$d=dossier_data(dossier_row(field($_GET,'id',36,true)),true);$d['canEdit']=$m['role']==='owner'||$d['author']===$m['email'];respond($d);}
   if(isset($_GET['marks']))respond(['marks'=>reader_marks_list($m,field($_GET,'id',36,true))]);
   if(isset($_GET['pdfCandidates']))respond(['clips'=>sql("SELECT c.id,c.title,c.created_at FROM clips c WHERE c.type='pdf' AND ".active_clip_condition()." ORDER BY c.created_at DESC LIMIT 100")->fetchAll()]);
   if(isset($_GET['duplicates']))respond(['duplicates'=>isset($_GET['pdfHash'])?pdf_duplicates(field($_GET,'pdfHash',64,true)):clip_duplicates(field($_GET,'url',10000))]);
@@ -52,6 +54,8 @@ try{
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
  $v=input();$action=$v['action']??'';
+ if($action==='saveDossier')respond(dossier_save($m,$v));
+ if($action==='exportDossier')dossier_export(field($v,'id',36,true));
  if($action==='sharePreview')respond(share_preview_data($v));
  if(in_array($action,['addMark','removeMark'],true))respond(reader_marks_change($m,$v));
  if($action==='pdf'){duplicate_gate($v);respond(pdf_upload($m,$v));}
@@ -81,16 +85,16 @@ try{
   try{db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);sql('UPDATE clips SET content_format=?,note_format=? WHERE id=?',[($v['contentFormat']??'text')==='markdown'?'markdown':'text',($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if($key)unlink(archive_path($key));throw $e;}
   respond(['id'=>$id]);
  }
- if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT c.* FROM clips c WHERE id=? AND '.active_clip_condition(),[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);sql('UPDATE clips SET note=?,note_format=? WHERE id=?',[field($v,'note',20000),($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);respond(['ok'=>true]);}
+ if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT c.* FROM clips c WHERE id=? AND '.active_clip_condition(),[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);db()->beginTransaction();sql('UPDATE clips SET note=?,note_format=? WHERE id=?',[field($v,'note',20000),($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);search_index_refresh($id);db()->commit();respond(['ok'=>true]);}
  if($action==='delete')respond(clip_trash_change($m,$v,false));
  if(in_array($action,['share','revoke','shareExpiry','revokeShare'],true)){
-  $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);if(!in_array($kind,['clip','collection'],true))problem('Bitte den Freigabetyp prüfen.');
+  $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);if(!in_array($kind,['clip','collection','dossier'],true))problem('Bitte den Freigabetyp prüfen.');
   if($action==='shareExpiry'||$action==='revokeShare'){
    $shareId=field($v,'shareId',36,true);if(!sql('SELECT id FROM shares WHERE id=? AND target_id=? AND kind=?',[$shareId,$id,$kind])->fetch())problem('Dieser Leselink ist nicht verfügbar.',404);
    if($action==='revokeShare'){db()->beginTransaction();sql('DELETE FROM shares WHERE id=?',[$shareId]);sql('DELETE FROM share_options WHERE share_id=?',[$shareId]);db()->commit();}else sql('UPDATE shares SET expires_at=? WHERE id=?',[share_expiry($v),$shareId]);respond(['ok'=>true]);
   }
   if($action==='revoke'){db()->beginTransaction();sql('DELETE FROM share_options WHERE share_id IN (SELECT id FROM shares WHERE target_id=? AND kind=?)',[$id,$kind]);sql('DELETE FROM shares WHERE target_id=? AND kind=?',[$id,$kind]);db()->commit();respond(['ok'=>true]);}
-  $table=$kind==='clip'?'clips':'collections';if(!sql('SELECT id FROM '.$table.' c WHERE id=?'.($kind==='clip'?' AND '.active_clip_condition():''),[$id])->fetch())problem('Dieser Inhalt ist nicht verfügbar.',404);
+  $table=match($kind){'clip'=>'clips','collection'=>'collections','dossier'=>'dossiers'};if(!sql('SELECT id FROM '.$table.' c WHERE id=?'.($kind==='clip'?' AND '.active_clip_condition():''),[$id])->fetch())problem('Dieser Inhalt ist nicht verfügbar.',404);
   $options=share_options_value($v,$kind);$clips=$options['scope']==='fixed'?share_target_clips($id,$kind,'fixed'):[];$expiry=share_expiry($v);$token=secret();$shareId=uid();try{db()->beginTransaction();sql('INSERT INTO shares(id,hash,target_id,kind,created_at,expires_at) VALUES(?,?,?,?,?,?)',[$shareId,hash('sha256',$token),$id,$kind,timestamp(),$expiry]);sql('INSERT INTO share_options(share_id,include_note,clip_ids) VALUES(?,?,?)',[$shareId,$options['includeNote']?1:0,$options['scope']==='fixed'?json_encode(array_column($clips,'id')):null]);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}respond(['token'=>$token,'expiresAt'=>$expiry]);
  }
  if($action==='member'){

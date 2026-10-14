@@ -2,7 +2,8 @@
 declare(strict_types=1);
 function share_options_value(array $v,string $kind):array {
  $include=$v['includeNote']??false;if(!is_bool($include))problem('Bitte die Notizfreigabe prüfen.');
- $scope=$v['scope']??'dynamic';if(!in_array($scope,['dynamic','fixed'],true)||($kind==='clip'&&$scope!=='dynamic'))problem('Bitte den Freigabeumfang prüfen.');
+ $scope=$v['scope']??'dynamic';if(!in_array($scope,['dynamic','fixed'],true)||($kind!=='collection'&&$scope!=='dynamic'))problem('Bitte den Freigabeumfang prüfen.');
+ if($kind==='dossier'&&$include)problem('Dossiers geben keine privaten Clipnotizen frei.');
  return ['includeNote'=>$include,'scope'=>$scope];
 }
 function share_target_clips(string $id,string $kind,string $scope='dynamic'):array {
@@ -18,7 +19,7 @@ function share_options_filter(array $s,array $clips):array {
  return $clips;
 }
 function share_preview_data(array $v):array {
- $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);$options=share_options_value($v,$kind);$clips=share_target_clips($id,$kind,$options['scope']);
+ $id=field($v,'id',36,true);$kind=field($v,'kind',16,true);$options=share_options_value($v,$kind);if($kind==='dossier')return dossier_shared($id);$clips=share_target_clips($id,$kind,$options['scope']);
  if($kind==='clip'&&!$clips)problem('Dieser Clip ist nicht verfügbar.',404);
  $chosen=field($v,'previewClipId',36)?:($clips[0]['id']??'');$preview=null;
  foreach($clips as $clip)if($clip['id']===$chosen){if(!$options['includeNote'])$clip['note']='';$preview=public_clip($clip);break;}
@@ -28,5 +29,5 @@ function share_preview_data(array $v):array {
 
 function library_share_list():array {
  $items=sql("SELECT s.id,s.target_id,s.kind,s.created_at,s.expires_at,COALESCE(o.include_note,1) AS include_note,o.clip_ids FROM shares s LEFT JOIN share_options o ON o.share_id=s.id")->fetchAll();
- foreach($items as &$item){$item['scope']=$item['clip_ids']===null?'dynamic':'fixed';$item['clipIds']=$item['clip_ids']===null?null:json_decode($item['clip_ids'],true);unset($item['clip_ids']);}unset($item);return $items;
+ foreach($items as &$item){$item['scope']=$item['clip_ids']===null?'dynamic':'fixed';$item['clipIds']=$item['clip_ids']===null?null:json_decode($item['clip_ids'],true);if($item['kind']==='dossier'){$item['clipIds']=dossier_document_ids($item['target_id']);}unset($item['clip_ids']);}unset($item);return $items;
 }

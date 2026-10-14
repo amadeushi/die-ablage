@@ -13,7 +13,7 @@ function preview_excerpt(string $content,string $title,int $limit=160,string $fo
  return rtrim($cut).'…';
 }
 function share_preview(array $share,string $origin,string $token): array {
- $clips=$share['clips'];$first=$clips[0]??null;
+ $clips=$share['clips'];if(isset($share['dossier'])){$d=$share['dossier'];$excerpt=$d['intro']?:implode(' ',array_column($d['entries'],'quote'));$clips=[['title'=>$d['title'],'content'=>$excerpt,'content_format'=>'markdown','url'=>'']];}$first=$clips[0]??null;
  $excerpt=$first?preview_excerpt((string)($first['content']??''),(string)$first['title'],160,(string)($first['content_format']??'text')):'';
  $description=$excerpt?:($first?'Zum Lesen geteilt: '.$first['title']:'Diese Sammlung ist noch leer. Neue Clips erscheinen, sobald sie hinzugefügt werden.');
  $sources=[];foreach($clips as $clip){$host=parse_url((string)($clip['url']??''),PHP_URL_HOST);if(is_string($host)&&$host!=='')$sources[]=preg_replace('/^www\./i','',mb_strtolower($host));}$sources=array_values(array_unique($sources));

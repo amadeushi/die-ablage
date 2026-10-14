@@ -1,7 +1,8 @@
+import {searchPattern} from './search-pattern';
 import {useEffect,useState,useRef,type RefObject} from 'react';
 export function HighlightedText({text,terms}:{text:string;terms:string[]}){
  if(!terms.length)return <>{text}</>;
- const escaped=[...terms].sort((a,b)=>b.length-a.length).map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));const pattern=new RegExp(escaped.join('|'),'giu');const nodes:any[]=[];let end=0,count=0;
+ const pattern=new RegExp([...terms].sort((a,b)=>b.length-a.length).map(t=>searchPattern(t).source).join('|'),'giu');const nodes:any[]=[];let end=0,count=0;
  for(const hit of text.matchAll(pattern)){if(count++>=500)break;nodes.push(text.slice(end,hit.index));nodes.push(<mark data-search-hit key={hit.index} tabIndex={-1}>{hit[0]}</mark>);end=hit.index!+hit[0].length;}nodes.push(text.slice(end));return <>{nodes}</>;
 }
 export function SearchNavigation({root,terms,clip,onPage,autoJump=true,emptyLabel="Treffer in Quellenadresse oder Dokumentangaben"}:{root:RefObject<HTMLElement|null>;terms:string[];clip:any;onPage:(page:number)=>void;autoJump?:boolean;emptyLabel?:string}){

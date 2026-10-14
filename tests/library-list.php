@@ -4,7 +4,7 @@ declare(strict_types=1);
 final class AppError extends RuntimeException {}
 function problem(string $message,int $code=400):never{throw new AppError($message,$code);}
 function db():PDO{static $db=null;return $db??=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);}
-function sql(string $query,array $args=[]):PDOStatement{$stmt=db()->prepare($query);$stmt->execute($args);return $stmt;}
+function sql(string $query,array $args=[]):PDOStatement{$stmt=db()->prepare($query);$stmt->execute($args);if(preg_match('/^(?:INSERT INTO clips|UPDATE clips)/i',$query)&&function_exists('search_index_refresh'))foreach(db()->query('SELECT id FROM clips')->fetchAll(PDO::FETCH_COLUMN) as $id)search_index_refresh($id);return $stmt;}
 function public_clip(array $clip):array{$clip['tags']=clip_tags($clip['id']);$clip['created_at']=(int)$clip['created_at'];$clip['archive_key']=$clip['archive_key']?'stored':null;return $clip;}
 require dirname(__DIR__).'/private/tags.php';
 require dirname(__DIR__).'/private/search.php';
@@ -12,7 +12,7 @@ require dirname(__DIR__).'/private/library-tools.php';
 require dirname(__DIR__).'/private/library-list.php';
 function timestamp():int{return 1700000000000;}
 function check(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
-db()->exec('CREATE TABLE clip_trash(clip_id TEXT,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT);CREATE TABLE clip_tags(clip_id TEXT,tag TEXT);CREATE TABLE clips(id TEXT,title TEXT,url TEXT,type TEXT,content TEXT,note TEXT,collection_id TEXT,author TEXT,archive_key TEXT,created_at INTEGER);CREATE TABLE share_options(share_id TEXT PRIMARY KEY,clip_ids TEXT);CREATE TABLE shares(id TEXT,target_id TEXT,kind TEXT,expires_at INTEGER);');
+db()->exec('CREATE TABLE search_index(id TEXT PRIMARY KEY,title TEXT,url TEXT,content TEXT,note TEXT);CREATE TABLE clip_trash(clip_id TEXT,deleted_at INTEGER,deleted_by TEXT);CREATE TABLE clip_favorites(clip_id TEXT,member_email TEXT);CREATE TABLE clip_tags(clip_id TEXT,tag TEXT);CREATE TABLE clips(id TEXT,title TEXT,url TEXT,type TEXT,content TEXT,note TEXT,collection_id TEXT,author TEXT,archive_key TEXT,created_at INTEGER);CREATE TABLE dossiers(id TEXT PRIMARY KEY,entries TEXT);CREATE TABLE share_options(share_id TEXT PRIMARY KEY,clip_ids TEXT);CREATE TABLE shares(id TEXT,target_id TEXT,kind TEXT,expires_at INTEGER);');
 for($i=0;$i<95;$i++)sql('INSERT INTO clips VALUES(?,?,?,?,?,?,?,?,?,?)',[(string)$i,'Clip '.$i,'https://example.com/'.$i,$i%2?'article':'page',str_repeat('Langer Testinhalt ',1000).($i===5?' SUCHWORT':'') ,$i===6?'Notizfund 100% _ !':'',$i<50?'collection-a':'collection-b','test@example.test',$i===5?str_repeat('a',32).'.html':null,$i]);
 sql('INSERT INTO shares(target_id,kind) VALUES(?,?)',['5','clip']);sql('INSERT INTO shares(target_id,kind) VALUES(?,?)',['collection-b','collection']);
 db()->exec("ALTER TABLE clips ADD COLUMN content_format TEXT NOT NULL DEFAULT 'text';ALTER TABLE clips ADD COLUMN note_format TEXT NOT NULL DEFAULT 'text';");
@@ -57,3 +57,20 @@ check(pdf_text_coverage("Seite 1\nInhalt\n\nSeite 3\nWeitere Angaben",3)===['tex
 check(pdf_text_coverage("Seite 1\nText\nSeite 1\nWiederholung\nSeite 99\nUngültig",3)['textPages']===1,'Unique in-range PDF pages');
 check(!pdf_text_coverage('Alter Lesetext ohne Seitenmarkierungen',3)['coverageKnown'],'Legacy coverage stays unknown');
 echo "PASS: exact-title ranking, chronological sorting, invalid sort guard, partial and unknown PDF coverage.\n";
+
+sql('UPDATE clips SET title=?,content=? WHERE id=?',['Müller und Straße','Daten-\n'."schutz und Mu\u{00ad}eller",'3']);
+sql('UPDATE clips SET content=? WHERE id=?',["Daten-\nschutz und Mu\u{00ad}eller",'3']);
+check(array_values(array_filter(library_page(['q'=>'Datenschutz'])['clips'],fn($clip)=>$clip['id']==='3'))[0]['hit']['match']==="Daten-\nschutz",'Hyphenated PDF word retains original highlight');
+check(library_page(['q'=>'Mueller Strasse'])['totalResults']===1,'German spelling variants');
+check(library_page(['q'=>'Bahnhof ODER Mueller'])['totalResults']===3,'German OR');
+check(library_page(['q'=>'(Bahnhof ODER Mueller) UND Datenschutz'])['totalResults']===3,'Parentheses and explicit AND');
+check(library_page(['q'=>'Mueller OR (Bahnhof -Parkplatz)'])['totalResults']===3,'English OR with local exclusion');
+foreach(['UND Bahnhof','Bahnhof ODER','(Bahnhof','Bahnhof)','Bahnhof OR OR Mueller','()'] as $bad){try{library_page(['q'=>$bad]);throw new RuntimeException('Invalid boolean expression accepted');}catch(AppError){}}
+check(search_terms('"ODER"')['positive']===['ODER'],'Quoted operators remain literal');
+echo "PASS: normalized index, PDF word breaks, German variants, boolean precedence, parentheses and invalid syntax.\n";
+
+sql('UPDATE clips SET title=?,content=? WHERE id=?',['Office E‑Mail',"Ofﬁziell: Daten ‐\n schutz",'4']);
+check(library_page(['q'=>'Offiziell'])['clips'][0]['hit']['match']==='Ofﬁziell','PDF ligature keeps original excerpt');
+check(library_page(['q'=>'"E-Mail"'])['clips'][0]['id']==='4','Nonbreaking hyphen variant');
+check(array_values(array_filter(library_page(['q'=>'Datenschutz'])['clips'],fn($clip)=>$clip['id']==='4'))[0]['hit']['match']==="Daten ‐\n schutz",'Spaced Unicode PDF line hyphen');
+echo "PASS: PDF ligatures, Unicode hyphens and spaced line breaks.\n";

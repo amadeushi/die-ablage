@@ -1,4 +1,5 @@
 import {useState,type CSSProperties} from 'react';
+import {searchPattern} from './search-pattern';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {HighlightedText} from './search-matches';
@@ -6,7 +7,7 @@ import {Minus,Plus,Type} from 'lucide-react';
 export function plainToMarkdown(text:string){return text.replace(/\\/g,'\\\\').replace(/([`*_{}\[\]<>#!|~])/g,'\\$1').replace(/^(\s*)(\d+)\./gm,'$1$2\\.').replace(/^(\s*)[-+>]/gm,'$1\\$&');}
 export function RichText({text,format='text',terms=[]}:{text:string;format?:string;terms?:string[]}){
  if(format!=='markdown')return <HighlightedText text={text} terms={terms}/>;
- const highlights=()=> (tree:any)=>{let count=0;const visit=(node:any)=>{if(!node.children)return;node.children=node.children.flatMap((child:any)=>{if(child.type!=='text'||!terms.length){visit(child);return [child];}const pattern=new RegExp([...terms].sort((a,b)=>b.length-a.length).map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'giu');const result:any[]=[];let end=0;for(const hit of child.value.matchAll(pattern)){if(count++>=500)break;result.push({type:'text',value:child.value.slice(end,hit.index)},{type:'element',tagName:'mark',properties:{'data-search-hit':'',tabIndex:-1},children:[{type:'text',value:hit[0]}]});end=hit.index+hit[0].length;}result.push({type:'text',value:child.value.slice(end)});return result;});};visit(tree);};
+ const highlights=()=> (tree:any)=>{let count=0;const visit=(node:any)=>{if(!node.children)return;node.children=node.children.flatMap((child:any)=>{if(child.type!=='text'||!terms.length){visit(child);return [child];}const pattern=new RegExp([...terms].sort((a,b)=>b.length-a.length).map(t=>searchPattern(t).source).join('|'),'giu');const result:any[]=[];let end=0;for(const hit of child.value.matchAll(pattern)){if(count++>=500)break;result.push({type:'text',value:child.value.slice(end,hit.index)},{type:'element',tagName:'mark',properties:{'data-search-hit':'',tabIndex:-1},children:[{type:'text',value:hit[0]}]});end=hit.index+hit[0].length;}result.push({type:'text',value:child.value.slice(end)});return result;});};visit(tree);};
  return <div className="markdown-body"><Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[highlights]} skipHtml components={{img:({alt})=><span>[Bild: {alt||'ohne Beschreibung'}]</span>,a:({href,children})=><a href={href} target="_blank" rel="noopener noreferrer">{children}</a>}}>{text}</Markdown></div>;
 }
 const defaults={size:18,font:'serif'};
