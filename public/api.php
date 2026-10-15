@@ -35,7 +35,7 @@ try{
   if(!$clip)problem('Dieser Clip ist nicht verfügbar.',404);
   if(isset($_GET['pdf']))pdf_download($clip);
   if(!isset($_GET['archive']))respond(isset($_GET['token'])?public_clip($clip):array_merge(public_clip($clip),['versions'=>pdf_versions($clip),'edit_revision'=>clip_edit_revision($clip),'favorite'=>(bool)sql('SELECT COUNT(*) FROM clip_favorites WHERE clip_id=? AND member_email=?',[$id,member()['email']])->fetchColumn()]));
-  if($clip['type']==='pdf')problem('Bitte die PDF-Datei über den PDF-Link öffnen.',404);
+  if($clip['type']==='pdf'||str_ends_with($clip['archive_key']??'','.pdf'))problem('Bitte die PDF-Datei über den PDF-Link öffnen.',404);
   if(!$clip['archive_key']||!is_file(archive_path($clip['archive_key'])))problem('Die Seitenkopie ist nicht verfügbar.',404);
   header("Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");header('Content-Type: text/html; charset=utf-8');
   echo '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow, noarchive"><title>'.htmlspecialchars($clip['title'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').' · Gespeicherte Seitenkopie</title><style>body{font:17px/1.8 Georgia,serif;color:#202022;max-width:72ch;margin:0 auto;padding:24px 20px;overflow-wrap:anywhere}h1{font-size:clamp(26px,5vw,36px);line-height:1.2}img{max-width:100%;height:auto}table{display:block;max-width:100%;overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}*{box-sizing:border-box}</style></head><body>';
@@ -57,7 +57,7 @@ try{
  if($action==='newspaper')respond(newspaper_change($m,$v));
  if($action==='newspaperArticle')respond(newspaper_article($m,$v));
  if($action==='saveDossier')respond(dossier_save($m,$v));
- if($action==='exportDossier')dossier_export(field($v,'id',36,true));
+ if($action==='exportDossier'){if(($v['format']??'json')==='zip'){require_once dirname(__DIR__).'/private/dossier-export.php';dossier_export_package($v);}if(isset($v['entryIds'])&&!is_array($v['entryIds']))problem('Bitte die Exportauswahl prüfen.');dossier_export(field($v,'id',36,true),$v['entryIds']??null);}
  if($action==='sharePreview')respond(share_preview_data($v));
  if(in_array($action,['addMark','removeMark'],true))respond(reader_marks_change($m,$v));
  if($action==='pdf'){duplicate_gate($v);respond(pdf_upload($m,$v));}

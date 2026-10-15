@@ -28,8 +28,8 @@ function dossier_shared(string $id):array {
  $d=dossier_row($id);$data=dossier_data($d);$ids=[];foreach($data['entries'] as $entry)if($entry['available']&&$entry['kind']==='document')$ids[]=$entry['clipId'];$sources=dossier_sources(array_map(fn($id)=>['clipId'=>$id],array_unique($ids)));
  return ['title'=>$data['title'],'clips'=>array_values($sources),'dossier'=>$data];
 }
-function dossier_export(string $id):never {
- $d=dossier_data(dossier_row($id),true);unset($d['revision'],$d['author']);header('Content-Type: application/json; charset=utf-8');header('Content-Disposition: attachment; filename="die-ablage-dossier.json"');echo json_encode($d,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);exit;
+function dossier_export(string $id,?array $ids=null):never {
+ $d=dossier_data(dossier_row($id),false);if($ids!==null){if(!$ids||count($ids)>50||array_filter($ids,fn($id)=>!is_string($id))||array_diff($ids,array_column($d['entries'],'id')))problem('Bitte die Exportauswahl prüfen.');$d['entries']=array_values(array_filter($d['entries'],fn($e)=>in_array($e['id'],$ids,true)));}unset($d['revision'],$d['author']);header('Content-Type: application/json; charset=utf-8');header('Content-Disposition: attachment; filename="die-ablage-dossier.json"');echo json_encode($d,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);exit;
 }
 
 function dossier_document_ids(string $id):array {$entries=json_decode(dossier_row($id)['entries'],true);return array_keys(dossier_sources(array_values(array_filter($entries,fn($entry)=>$entry['kind']==='document'))));}

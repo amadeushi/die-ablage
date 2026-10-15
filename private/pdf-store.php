@@ -62,7 +62,7 @@ function pdf_upload(array $m,array $v): array {
  return ['id'=>$id];
 }
 function pdf_download(array $clip): never {
- $key=$clip['archive_key']??'';if($clip['type']!=='pdf'||!preg_match('/^[a-f0-9]{32}\.pdf$/D',$key)||!is_file(archive_path($key)))problem('Diese PDF-Datei ist nicht verfügbar.',404);
+ $key=$clip['archive_key']??'';if(($clip['type']!=='pdf'&&!($clip['type']==='article'&&!empty(newspaper_record($clip['id'])['parent_id'])))||!preg_match('/^[a-f0-9]{32}\.pdf$/D',$key)||!is_file(archive_path($key)))problem('Diese PDF-Datei ist nicht verfügbar.',404);
  $meta=pdf_metadata($key);$filename=preg_replace('/[\x00-\x1f\x7f]/u','',$meta['filename']??'Dokument.pdf');
  header('Content-Type: application/pdf');header("Content-Disposition: attachment; filename=\"Dokument.pdf\"; filename*=UTF-8''".rawurlencode($filename));
  header("Content-Security-Policy: sandbox; default-src 'none'; frame-ancestors 'self'");header('X-Robots-Tag: noindex, nofollow, noarchive');header('Content-Length: '.filesize(archive_path($key)));if(session_status()===PHP_SESSION_ACTIVE)session_write_close();readfile(archive_path($key));exit;
