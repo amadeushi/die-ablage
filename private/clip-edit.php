@@ -14,9 +14,10 @@ function clip_edit(array $m,array $v): array {
  $url=field($v,'url',10000,$c['type']!=='pdf');if($c['type']==='pdf'&&!trim($url))$url=$c['url'];$u=parse_url($url);if(!$u||!in_array($u['scheme']??'',['http','https'],true)||empty($u['host'])||isset($u['user'])||isset($u['pass'])||!filter_var($url,FILTER_VALIDATE_URL))problem('Bitte eine gültige Website-Adresse mit https:// oder http:// eingeben.');
  $content=field($v,'content',$c['type']==='pdf'?5*1024*1024:1000000,$c['type']!=='link');if($c['type']==='pdf'&&strlen($content)>5*1024*1024)problem('Der PDF-Lesetext ist zu groß (maximal 5 MB).');if($c['type']==='pdf')$content=pdf_index_prefix(pdf_metadata($c['archive_key'])).$content;$note=field($v,'note',20000);$collection=field($v,'collectionId',36)?:null;
  if($collection&&!sql('SELECT id FROM collections WHERE id=?',[$collection])->fetch())problem('Diese Sammlung existiert nicht.');
+ if(in_array($c['type'],['article','page'],true))article_snapshot($c,sql('SELECT COUNT(*) FROM article_versions WHERE clip_id=?',[$id])->fetchColumn()?'manual':'basis',$m['email']);
  // Keep identity, author, timestamp, clip type, original archive and share tokens intact.
  sql('UPDATE clips SET title=?,url=?,content=?,note=?,collection_id=?,content_format=?,note_format=? WHERE id=?',[$title,$url,$content,$note,$collection,($v['contentFormat']??($c['content_format']??'text'))==='markdown'?'markdown':'text',($v['noteFormat']??($c['note_format']??'text'))==='markdown'?'markdown':'text',$id]);
  if($c['type']==='pdf'&&isset($v['pdfExtraction'])){if(!is_array($v['pdfExtraction']))problem('Bitte die PDF-Erfassung prüfen.');newspaper_store($id,newspaper_public($id)??[],null,$v['pdfExtraction']);}
- tags_save($id,$tags);$updated=sql('SELECT c.* FROM clips c WHERE id=? AND NOT EXISTS (SELECT 1 FROM clip_trash tr WHERE tr.clip_id=c.id)',[$id])->fetch();db()->commit();
+ tags_save($id,$tags);$updated=sql('SELECT c.* FROM clips c WHERE id=? AND NOT EXISTS (SELECT 1 FROM clip_trash tr WHERE tr.clip_id=c.id)',[$id])->fetch();if(in_array($updated['type'],['article','page'],true))article_snapshot($updated,'manual',$m['email']);db()->commit();
  return array_merge(public_clip($updated),['edit_revision'=>clip_edit_revision($updated)]);
 }

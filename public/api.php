@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require dirname(__DIR__).'/private/bootstrap.php';
 require dirname(__DIR__).'/private/clip-edit.php';
+require dirname(__DIR__).'/private/article-versions.php';
 header('X-Content-Type-Options: nosniff');header('Referrer-Policy: no-referrer');header('Cache-Control: no-store');
 try{
  config();if(!is_file(dirname(__DIR__).'/private/installed.lock'))problem('Bitte zuerst die Installation abschließen.',503);
@@ -44,6 +45,8 @@ try{
  if($route!=='library')problem('Diese Adresse ist nicht verfügbar.',404);
  $m=member();
  if($method==='GET'){
+  if(isset($_GET['articleVersions']))respond(article_context($m,$_GET));
+  if(isset($_GET['articleVersion'])){$c=article_clip(field($_GET,'id',36,true));$version=sql('SELECT id,title,content,content_format,origin,created_at FROM article_versions WHERE clip_id=? AND id=?',[$c['id'],field($_GET,'versionId',36,true)])->fetch();if(!$version)problem('Diese Fassung ist nicht verfügbar.',404);respond($version);}
   if(isset($_GET['dossiers']))respond(['dossiers'=>sql('SELECT id,title,author,updated_at FROM dossiers ORDER BY updated_at DESC,id DESC LIMIT 200')->fetchAll()]);
   if(isset($_GET['dossier'])){$d=dossier_data(dossier_row(field($_GET,'id',36,true)),true);$d['canEdit']=$m['role']==='owner'||$d['author']===$m['email'];respond($d);}
   if(isset($_GET['marks']))respond(['marks'=>reader_marks_list($m,field($_GET,'id',36,true))]);
@@ -54,6 +57,8 @@ try{
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
  $v=input();$action=$v['action']??'';
+ if($action==='articleApply')respond(article_apply($m,$v));
+ if($action==='articleCheck'){$c=article_clip(field($v,'id',36,true));if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Quelle prüfen.',403);rate_limit('article-check');require_once dirname(__DIR__).'/private/article-fetch.php';$candidate=article_extract(article_fetch_html($c['url']));respond(array_merge($candidate,['url'=>$c['url'],'checkedAt'=>timestamp()]));}
  if($action==='newspaper')respond(newspaper_change($m,$v));
  if($action==='newspaperArticle')respond(newspaper_article($m,$v));
  if($action==='saveDossier')respond(dossier_save($m,$v));
@@ -84,7 +89,7 @@ try{
   $archive=field($v,'archive',5000000);if(strlen($archive)>5000000)problem('Die Seitenkopie ist zu groß. Bitte eine Auswahl clippen.');
   $id=$captureId?:uid();$key=null;
   if($archive&&$type!=='link'){$dir=dirname(__DIR__).'/private/archives';if(!is_dir($dir)&&!mkdir($dir,0700,true))problem('Die Seitenkopie kann nicht gespeichert werden.',503);$key=bin2hex(random_bytes(16)).'.html';if(file_put_contents(archive_path($key),$archive,LOCK_EX)===false)problem('Die Seitenkopie kann nicht gespeichert werden.',503);chmod(archive_path($key),0600);}
-  try{db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);sql('UPDATE clips SET content_format=?,note_format=? WHERE id=?',[($v['contentFormat']??'text')==='markdown'?'markdown':'text',($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if($key)unlink(archive_path($key));throw $e;}
+  try{db()->beginTransaction();sql('INSERT INTO clips(id,title,url,type,content,note,collection_id,author,archive_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$title,$url,$type,$content,$note,$collection,$m['email'],$key,timestamp()]);tags_save($id,$tags);sql('UPDATE clips SET content_format=?,note_format=? WHERE id=?',[($v['contentFormat']??'text')==='markdown'?'markdown':'text',($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);article_snapshot(sql('SELECT * FROM clips WHERE id=?',[$id])->fetch(),'clip',$m['email']);db()->commit();}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();if($key)unlink(archive_path($key));throw $e;}
   respond(['id'=>$id]);
  }
  if($action==='note'){$id=field($v,'id',36,true);$c=sql('SELECT c.* FROM clips c WHERE id=? AND '.active_clip_condition(),[$id])->fetch();if(!$c)problem('Dieser Clip ist nicht verfügbar.',404);if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Notiz bearbeiten.',403);db()->beginTransaction();sql('UPDATE clips SET note=?,note_format=? WHERE id=?',[field($v,'note',20000),($v['noteFormat']??'text')==='markdown'?'markdown':'text',$id]);search_index_refresh($id);db()->commit();respond(['ok'=>true]);}
