@@ -54,6 +54,8 @@ try{
   respond(array_merge($base,['clips'=>array_map('public_clip',sql('SELECT c.* FROM clips c WHERE '.active_clip_condition().' ORDER BY created_at DESC')->fetchAll())]));
  }
  $v=input();$action=$v['action']??'';
+ if($action==='newspaper')respond(newspaper_change($m,$v));
+ if($action==='newspaperArticle')respond(newspaper_article($m,$v));
  if($action==='saveDossier')respond(dossier_save($m,$v));
  if($action==='exportDossier')dossier_export(field($v,'id',36,true));
  if($action==='sharePreview')respond(share_preview_data($v));

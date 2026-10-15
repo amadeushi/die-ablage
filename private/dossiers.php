@@ -9,7 +9,7 @@ function dossier_sources(array $entries):array {
 function dossier_data(array $d,bool $private=false):array {
  $entries=json_decode($d['entries'],true);if(!is_array($entries))problem('Dieses Dossier kann nicht gelesen werden.',503);$sources=dossier_sources($entries);$result=[];
  foreach($entries as $entry){$source=$sources[$entry['clipId']]??null;$entry['available']=(bool)$source;
-  if($source){$entry['source']=$entry['kind']==='quote'?array_intersect_key($source,array_flip(['id','title','url','type','created_at'])):public_clip($source);if(!$private)unset($entry['sourceTitle']);if(str_starts_with($entry['source']['url'],config()['origin'].'/api/'))$entry['source']['url']='';}
+  if($source){$entry['source']=$entry['kind']==='quote'?array_intersect_key($source,array_flip(['id','title','url','type','created_at'])):public_clip($source);$entry['source']['newspaper']=newspaper_public($source['id']);if(!$private)unset($entry['sourceTitle']);if(str_starts_with($entry['source']['url'],config()['origin'].'/api/'))$entry['source']['url']='';}
   elseif(!$private){$entry=['id'=>$entry['id'],'kind'=>$entry['kind'],'available'=>false];}
   $result[]=$entry;
  }

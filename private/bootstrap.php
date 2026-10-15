@@ -80,6 +80,7 @@ function password_value(array $v): string {$p=field($v,'password',1024,true);if(
 function password_digest(string $p): string {return password_hash(hash('sha256',$p),PASSWORD_DEFAULT);}
 function password_matches(string $p,string $hash): bool {return password_verify(hash('sha256',$p),$hash);}
 require_once __DIR__.'/pdf-store.php';
+require_once __DIR__.'/newspapers.php';
 require_once __DIR__.'/tags.php';
 require_once __DIR__.'/search.php';
 require_once __DIR__.'/library-tools.php';
@@ -87,7 +88,7 @@ require_once __DIR__.'/share-expiry.php';
 require_once __DIR__.'/share-options.php';
 require_once __DIR__.'/dossiers.php';
 require_once __DIR__.'/reader-marks.php';
-function public_clip(array $c): array { if(array_key_exists('favorite',$c))$c['favorite']=(bool)$c['favorite'];if(array_key_exists('deleted_at',$c))$c['deleted_at']=$c['deleted_at']?(int)$c['deleted_at']:null; $c['tags']=clip_tags($c['id']); if(($c['type']??'')==='pdf'){ $c['pdf']=pdf_metadata($c['archive_key']??'');unset($c['pdf']['previousId']);$prefix=pdf_index_prefix($c['pdf']);if(isset($c['summary']))$c['summary']=($c['pdf']['filename']??'PDF-Dokument').' · '.($c['pdf']['pages']??'?').' Seiten';foreach(['content','summary'] as $field)if(isset($c[$field])&&str_starts_with($c[$field],$prefix))$c[$field]=substr($c[$field],strlen($prefix)); } if(($c['content_format']??'text')==='markdown'&&isset($c['summary']))$c['summary']=preg_replace('/(?:^|\n)\s*(?:#{1,6} |[-*>] |[0-9]+\. )|[*`_]/u','',$c['summary']);if(($c['type']??'')==='pdf'&&isset($c['content']))$c['pdf']=array_merge($c['pdf'],pdf_text_coverage($c['content'],(int)($c['pdf']['pages']??0)));$c['created_at']=(int)$c['created_at'];$c['archive_key']=$c['archive_key']?'stored':null;return $c; }
+function public_clip(array $c): array { if(array_key_exists('favorite',$c))$c['favorite']=(bool)$c['favorite'];if(array_key_exists('deleted_at',$c))$c['deleted_at']=$c['deleted_at']?(int)$c['deleted_at']:null; $c['tags']=clip_tags($c['id']);$c['newspaper']=newspaper_public($c['id']); if(($c['type']??'')==='pdf'){ $c['pdf']=pdf_metadata($c['archive_key']??'');unset($c['pdf']['previousId']);$nr=newspaper_record($c['id']);if(!empty($nr['text_order'])){$c['pdf']['textOrder']=$nr['text_order'];$c['pdf']['layoutPages']=(int)$nr['layout_pages'];$c['pdf']['fallbackPages']=(int)$nr['fallback_pages'];}$prefix=pdf_index_prefix($c['pdf']);if(isset($c['summary']))$c['summary']=($c['pdf']['filename']??'PDF-Dokument').' · '.($c['pdf']['pages']??'?').' Seiten';foreach(['content','summary'] as $field)if(isset($c[$field])&&str_starts_with($c[$field],$prefix))$c[$field]=substr($c[$field],strlen($prefix)); } if(($c['content_format']??'text')==='markdown'&&isset($c['summary']))$c['summary']=preg_replace('/(?:^|\n)\s*(?:#{1,6} |[-*>] |[0-9]+\. )|[*`_]/u','',$c['summary']);if(($c['type']??'')==='pdf'&&isset($c['content']))$c['pdf']=array_merge($c['pdf'],pdf_text_coverage($c['content'],(int)($c['pdf']['pages']??0)));$c['created_at']=(int)$c['created_at'];$c['archive_key']=$c['archive_key']?'stored':null;return $c; }
 function shared_data(string $token): array {
  $s=share_by_token($token);$options=$s['options_present']!==null?['include_note'=>$s['include_note'],'clip_ids'=>$s['clip_ids']]:null;
  if($s['kind']==='dossier')return dossier_shared($s['target_id']);
