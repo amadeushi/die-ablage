@@ -58,7 +58,7 @@ try{
  }
  $v=input();$action=$v['action']??'';
  if($action==='articleApply')respond(article_apply($m,$v));
- if($action==='articleCheck'){$c=article_clip(field($v,'id',36,true));if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Quelle prüfen.',403);rate_limit('article-check');require_once dirname(__DIR__).'/private/article-fetch.php';$candidate=article_extract(article_fetch_html($c['url']));respond(array_merge($candidate,['url'=>$c['url'],'checkedAt'=>timestamp()]));}
+ if($action==='articleCheck'){$c=article_clip(field($v,'id',36,true));if(!clip_edit_allowed($m,$c))problem('Nur der Ersteller und der Bibliotheksinhaber dürfen die Quelle prüfen.',403);rate_limit('article-check');require_once dirname(__DIR__).'/private/article-fetch.php';$candidate=article_extract(article_fetch_html($c['url']));$previous=sql("SELECT content FROM article_versions WHERE clip_id=? AND origin<>'manual' ORDER BY created_at DESC,id DESC LIMIT 1",[$c['id']])->fetchColumn()?:$c['content'];if(mb_strlen($previous)>1000&&mb_strlen($candidate['content'])<mb_strlen($previous)*0.45)problem('Der Abruf enthält deutlich weniger Text als die gespeicherte Quellfassung. Eine Vorschau oder Zugangsschranke ist möglich. Bitte angemeldet erneut clippen.');respond(array_merge($candidate,['url'=>$c['url'],'checkedAt'=>timestamp()]));}
  if($action==='newspaper')respond(newspaper_change($m,$v));
  if($action==='newspaperArticle')respond(newspaper_article($m,$v));
  if($action==='saveDossier')respond(dossier_save($m,$v));
