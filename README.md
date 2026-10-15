@@ -150,3 +150,5 @@ Werkzeuge → Exportieren vereint das vollständige Original ohne persönliche M
 Bei Speicherproblemen erscheinen Exporthinweis und eine Rückfrage vor dem Schließen; ein Browser-Neuladen wird zusätzlich durch einen Hinweis abgesichert. Sehr dünne Markierungen haben größere unsichtbare Trefferflächen; eine Liste mit einzeln bedienbaren Entfernenknöpfen bietet eine Alternative bei überlappenden Markierungen.
 
 PDF-Zoom: Zwei-Finger-Geste in der Originalansicht (100–400 %), sichtbare Plus-/Minusknöpfe und Rücksetzen per Prozentanzeige. Der Bildausschnitt bleibt beim Zoomen verankert; die hochauflösende Darstellung wird nach kurzer Pause nachgeladen.
+
+Smartphone-PDF: Bei Seitenbreite nach links zur nächsten und nach rechts zur vorherigen Seite wischen. Vertikales Scrollen bleibt innerhalb derselben Seite. Bei Vergrößerung verschiebt ein Finger den Ausschnitt; Blättern erfolgt über die Pfeiltasten oder nach Rückkehr zur Seitenbreite.

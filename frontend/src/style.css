@@ -106,3 +106,5 @@
 
 .pdf-quick-zoom{position:absolute;z-index:10;left:16px;bottom:calc(44px + env(safe-area-inset-bottom));display:flex;align-items:center;background:var(--white);border:1px solid var(--line);border-radius:8px;box-shadow:0 2px 10px #20202226}.pdf-quick-zoom button{min-width:44px;min-height:44px}.pdf-quick-zoom .text-btn{min-width:64px;padding:6px;font-variant-numeric:tabular-nums}
 .pdf-page-scroll{scrollbar-gutter:stable}
+
+.pdf-reader-hint .pdf-mobile-hint{display:none}.pdf-reader-hint .pdf-desktop-hint{margin:0}@media(max-width:720px){.pdf-reader-hint .pdf-mobile-hint{display:inline;margin:0}.pdf-reader-hint .pdf-desktop-hint{display:none}}
